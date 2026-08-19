@@ -49,7 +49,7 @@ def main() -> None:
         buffer_size=20_000,
         learning_starts=1_000,
         target_update_interval=500,
-        exploration_fraction=0.25,
+        exploration_steps=5_000,
         seed=experiment.seed,
     )
 

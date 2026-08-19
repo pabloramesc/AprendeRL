@@ -36,7 +36,7 @@ class DQNConfig:
     target_update_interval: int = 500
     exploration_initial_epsilon: float = 1.0
     exploration_final_epsilon: float = 0.05
-    exploration_fraction: float = 0.2
+    exploration_steps: int = 10_000
     max_grad_norm: float = 10.0
     log_interval: int = 10
     seed: int | None = None
@@ -62,8 +62,8 @@ class DQNConfig:
             raise ValueError(
                 "exploration_initial_epsilon must be between final epsilon and 1"
             )
-        if not 0 < self.exploration_fraction <= 1:
-            raise ValueError("exploration_fraction must be in (0, 1]")
+        if self.exploration_steps <= 0:
+            raise ValueError("exploration_steps must be positive")
         if self.max_grad_norm <= 0:
             raise ValueError("max_grad_norm must be positive")
         if self.log_interval <= 0:
@@ -129,8 +129,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         self.optimizer = torch.optim.Adam(
             self.q_network.parameters(), lr=self.config.learning_rate
         )
-        self._exploration_duration: int | None = None
-        self.exploration = self._make_exploration(duration=1)
+        self.exploration = self._make_exploration()
 
     @property
     def epsilon(self) -> float:
@@ -159,7 +158,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 2,
+                "version": 3,
                 "config": asdict(self.config),
                 "uses_default_network": self._uses_default_network,
                 "observation_shape": self.observation_shape,
@@ -169,7 +168,6 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
                 "optimizer": self.optimizer.state_dict(),
                 "num_timesteps": self.num_timesteps,
                 "num_updates": self.num_updates,
-                "exploration_duration": self._exploration_duration,
                 "episode_returns": self.episode_returns,
                 "episode_lengths": self.episode_lengths,
             },
@@ -198,6 +196,13 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             checkpoint = torch.load(path, map_location=device)
 
         config_data = dict(checkpoint["config"])
+        if "exploration_fraction" in config_data:
+            # Version 2 resolved the fraction on the first learn() call and
+            # persisted the resulting duration separately.
+            config_data.pop("exploration_fraction")
+            config_data["exploration_steps"] = checkpoint.get(
+                "exploration_duration"
+            ) or 1
         if not checkpoint["uses_default_network"] and network is None:
             raise ValueError(
                 "loading a custom-network checkpoint requires network=nn.Module"
@@ -220,31 +225,19 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         algorithm.optimizer.load_state_dict(checkpoint["optimizer"])
         algorithm.num_timesteps = int(checkpoint["num_timesteps"])
         algorithm.num_updates = int(checkpoint["num_updates"])
-        algorithm._exploration_duration = checkpoint["exploration_duration"]
-        if algorithm._exploration_duration is not None:
-            algorithm.exploration = algorithm._make_exploration(
-                algorithm._exploration_duration
-            )
         algorithm.episode_returns = list(checkpoint["episode_returns"])
         algorithm.episode_lengths = list(checkpoint["episode_lengths"])
         return algorithm
 
-    def _make_exploration(self, duration: int) -> EpsilonGreedyPolicy:
+    def _make_exploration(self) -> EpsilonGreedyPolicy:
         return EpsilonGreedyPolicy(
             LinearSchedule(
                 self.config.exploration_initial_epsilon,
                 self.config.exploration_final_epsilon,
-                duration,
+                self.config.exploration_steps,
             ),
             seed=self.config.seed,
         )
-
-    def _before_learn(self, total_timesteps: int) -> None:
-        if self._exploration_duration is None:
-            self._exploration_duration = max(
-                1, int(total_timesteps * self.config.exploration_fraction)
-            )
-            self.exploration = self._make_exploration(self._exploration_duration)
 
     def _sample_action(self, observation: np.ndarray) -> int:
         return self.predict(observation, deterministic=False)

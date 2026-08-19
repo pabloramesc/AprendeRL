@@ -19,7 +19,7 @@ def test_dqn_improves_on_cartpole() -> None:
         learning_starts=500,
         train_frequency=4,
         target_update_interval=250,
-        exploration_fraction=0.35,
+        exploration_steps=2_100,
         seed=11,
     )
     try:

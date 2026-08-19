@@ -17,7 +17,7 @@ def small_config(**overrides: object) -> DQNConfig:
         "learning_starts": 8,
         "train_frequency": 1,
         "target_update_interval": 5,
-        "exploration_fraction": 0.5,
+        "exploration_steps": 12,
         "seed": 3,
     }
     values.update(overrides)
@@ -32,6 +32,33 @@ def test_dqn_uses_default_q_network() -> None:
         env.close()
 
     assert isinstance(agent.q_network, QNetwork)
+
+
+def test_exploration_uses_configured_number_of_steps() -> None:
+    env = gym.make("CartPole-v1")
+    try:
+        agent = DQN(
+            env,
+            config=small_config(
+                exploration_initial_epsilon=1.0,
+                exploration_final_epsilon=0.2,
+                exploration_steps=8,
+            ),
+            device="cpu",
+        )
+        assert agent.epsilon == pytest.approx(1.0)
+        agent.learn(4)
+        assert agent.epsilon == pytest.approx(0.6)
+        agent.learn(4)
+    finally:
+        env.close()
+
+    assert agent.epsilon == pytest.approx(0.2)
+
+
+def test_exploration_steps_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="exploration_steps must be positive"):
+        DQNConfig(exploration_steps=0)
 
 
 def test_dqn_updates_and_round_trips_checkpoint(tmp_path) -> None:
