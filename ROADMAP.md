@@ -2,7 +2,7 @@
 
 The 0.1 release establishes the small, stable core used by later algorithms:
 Gymnasium interaction, typed configuration, PyTorch networks, replay storage,
-callbacks, evaluation, logging, checkpointing, and Double DQN. Later
+callbacks, evaluation, logging, checkpointing, and vanilla DQN. Later
 components will be added when an implemented algorithm needs them, keeping the
 mathematics visible and avoiding framework machinery for its own sake.
 
@@ -15,8 +15,8 @@ Q-learning.
 
 ### 2. DQN family
 
-Dueling DQN, prioritized replay, n-step returns, NoisyNet, C51, QR-DQN, and
-Rainbow.
+Double DQN, Dueling DQN, prioritized replay, n-step returns, NoisyNet, C51,
+QR-DQN, and Rainbow.
 
 ### 3. Policy gradients
 
@@ -56,8 +56,8 @@ RL, and multi-objective RL.
 
 | Release | Scope |
 | --- | --- |
-| `0.1` | Core API and Double DQN |
-| `0.2` | Dueling DQN, prioritized replay, and n-step returns |
+| `0.1` | Core API and vanilla DQN |
+| `0.2` | Double/Dueling DQN, prioritized replay, and n-step returns |
 | `0.3` | REINFORCE, A2C, and GAE |
 | `0.4` | PPO and vectorized environments |
 | `0.5` | DDPG, TD3, and SAC |

@@ -1,4 +1,4 @@
-"""Train and evaluate Double DQN on Gymnasium CartPole."""
+"""Train and evaluate vanilla DQN on Gymnasium CartPole."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import gymnasium as gym
 
-from aprenderl import DoubleDQN, DoubleDQNConfig
+from aprenderl import DQN, DQNConfig
 from aprenderl.config import ExperimentConfig
 from aprenderl.logging import TrainingLogger
 from aprenderl.utils import evaluate_policy
@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint",
         type=Path,
-        default=Path("artifacts/double_dqn_cartpole.pt"),
+        default=Path("artifacts/dqn_cartpole.pt"),
     )
     return parser.parse_args()
 
@@ -44,7 +44,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     train_env = gym.make("CartPole-v1")
     eval_env = gym.make("CartPole-v1")
-    config = DoubleDQNConfig(
+    config = DQNConfig(
         learning_rate=1e-3,
         buffer_size=20_000,
         learning_starts=1_000,
@@ -54,9 +54,9 @@ def main() -> None:
     )
 
     try:
-        agent = DoubleDQN(
+        agent = DQN(
             train_env,
-            config,
+            config=config,
             device=experiment.device,
             logger=TrainingLogger(verbose=True),
         )
@@ -74,7 +74,7 @@ def main() -> None:
 
     recent = agent.episode_returns[-10:]
     recent_mean = sum(recent) / len(recent) if recent else 0.0
-    print("Algorithm: Double DQN")
+    print("Algorithm: DQN")
     print(f"Timesteps: {agent.num_timesteps}")
     print(f"Updates: {agent.num_updates}")
     print(f"Mean return (last {len(recent)} training episodes): {recent_mean:.1f}")

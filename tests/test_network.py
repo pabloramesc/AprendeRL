@@ -1,4 +1,4 @@
-"""Tests for the Double DQN Q-network."""
+"""Tests for the default DQN Q-network."""
 
 import torch
 

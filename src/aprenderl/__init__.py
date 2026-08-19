@@ -1,17 +1,17 @@
 """AprendeRL public API."""
 
 from aprenderl.algorithms import (
+    DQN,
     BaseAlgorithm,
-    DoubleDQN,
-    DoubleDQNConfig,
+    DQNConfig,
     OffPolicyAlgorithm,
     OnPolicyAlgorithm,
 )
 
 __all__ = [
     "BaseAlgorithm",
-    "DoubleDQN",
-    "DoubleDQNConfig",
+    "DQN",
+    "DQNConfig",
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
 ]

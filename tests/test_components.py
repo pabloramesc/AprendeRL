@@ -3,7 +3,7 @@
 import gymnasium as gym
 import torch
 
-from aprenderl import DoubleDQN, DoubleDQNConfig
+from aprenderl import DQN, DQNConfig
 from aprenderl.callbacks import BaseCallback
 from aprenderl.distributions import CategoricalDistribution
 from aprenderl.envs import EpisodeStatsWrapper
@@ -12,16 +12,16 @@ from aprenderl.utils import evaluate_policy
 
 
 class StopAfterOneStep(BaseCallback):
-    def on_step(self, algorithm: DoubleDQN, transition: Transition) -> bool:
+    def on_step(self, algorithm: DQN, transition: Transition) -> bool:
         return False
 
 
 def test_callback_can_stop_training() -> None:
     env = gym.make("CartPole-v1")
     try:
-        agent = DoubleDQN(
+        agent = DQN(
             env,
-            DoubleDQNConfig(buffer_size=8, batch_size=2, seed=1),
+            config=DQNConfig(buffer_size=8, batch_size=2, seed=1),
             callback=StopAfterOneStep(),
             device="cpu",
         ).learn(10)
@@ -46,9 +46,9 @@ def test_wrapper_and_evaluation_handle_episode_end() -> None:
     try:
         observation, _ = env.reset(seed=2)
         _, _, terminated, truncated, info = env.step(env.action_space.sample())
-        agent = DoubleDQN(
+        agent = DQN(
             evaluation_env,
-            DoubleDQNConfig(buffer_size=8, batch_size=2, seed=2),
+            config=DQNConfig(buffer_size=8, batch_size=2, seed=2),
             device="cpu",
         )
         result = evaluate_policy(agent, evaluation_env, episodes=2, seed=10)

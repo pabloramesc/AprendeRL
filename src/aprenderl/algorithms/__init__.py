@@ -5,12 +5,12 @@ from aprenderl.algorithms.base import (
     OffPolicyAlgorithm,
     OnPolicyAlgorithm,
 )
-from aprenderl.algorithms.dqn import DoubleDQN, DoubleDQNConfig
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 
 __all__ = [
     "BaseAlgorithm",
-    "DoubleDQN",
-    "DoubleDQNConfig",
+    "DQN",
+    "DQNConfig",
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
 ]

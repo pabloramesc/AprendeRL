@@ -14,7 +14,7 @@ class ExperimentConfig:
     evaluation_episodes: int = 10
     seed: int = 42
     device: str = "auto"
-    checkpoint_path: Path = Path("artifacts/double_dqn_cartpole.pt")
+    checkpoint_path: Path = Path("artifacts/dqn_cartpole.pt")
 
     def __post_init__(self) -> None:
         if self.total_timesteps <= 0:

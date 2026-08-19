@@ -1,7 +1,8 @@
-"""A readable Double Deep Q-Network implementation."""
+"""A readable vanilla Deep Q-Network implementation."""
 
 from __future__ import annotations
 
+import copy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -22,8 +23,8 @@ from aprenderl.utils import resolve_device
 
 
 @dataclass(frozen=True)
-class DoubleDQNConfig:
-    """Typed hyperparameters for :class:`DoubleDQN`."""
+class DQNConfig:
+    """Typed hyperparameters for :class:`DQN`."""
 
     learning_rate: float = 1e-3
     gamma: float = 0.99
@@ -36,7 +37,6 @@ class DoubleDQNConfig:
     exploration_initial_epsilon: float = 1.0
     exploration_final_epsilon: float = 0.05
     exploration_fraction: float = 0.2
-    hidden_sizes: tuple[int, ...] = (128, 128)
     max_grad_norm: float = 10.0
     log_interval: int = 10
     seed: int | None = None
@@ -64,38 +64,36 @@ class DoubleDQNConfig:
             )
         if not 0 < self.exploration_fraction <= 1:
             raise ValueError("exploration_fraction must be in (0, 1]")
-        if any(size <= 0 for size in self.hidden_sizes):
-            raise ValueError("hidden_sizes must contain only positive values")
         if self.max_grad_norm <= 0:
             raise ValueError("max_grad_norm must be positive")
         if self.log_interval <= 0:
             raise ValueError("log_interval must be positive")
 
 
-class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
-    """Double DQN for one Gymnasium environment with discrete actions.
+class DQN(OffPolicyAlgorithm[np.ndarray, int]):
+    """Vanilla DQN for one Gymnasium environment with discrete actions.
 
-    The online network selects the next action while the target network
-    evaluates it. This reduces the maximization overestimation of vanilla DQN
-    while keeping the update equation compact.
+    A custom Q-network can be supplied as any ``nn.Module`` mapping a batch of
+    observations to one value per action. When omitted, a small MLP is created.
     """
 
     def __init__(
         self,
         env: gym.Env[Any, Any],
-        config: DoubleDQNConfig | None = None,
+        network: nn.Module | None = None,
         *,
+        config: DQNConfig | None = None,
         device: str | torch.device = "auto",
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        self.config = config or DoubleDQNConfig()
+        self.config = config or DQNConfig()
         self.device = resolve_device(device)
 
         if not isinstance(env.observation_space, gym.spaces.Box):
-            raise TypeError("DoubleDQN requires a Box observation space")
+            raise TypeError("DQN requires a Box observation space")
         if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise TypeError("DoubleDQN requires a Discrete action space")
+            raise TypeError("DQN requires a Discrete action space")
         if env.observation_space.shape is None or not env.observation_space.shape:
             raise ValueError("the observation space must have a non-empty shape")
 
@@ -119,9 +117,14 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
             log_interval=self.config.log_interval,
         )
 
-        self.q_network = self._new_network()
-        self.target_network = self._new_network()
-        self.target_network.load_state_dict(self.q_network.state_dict())
+        self._uses_default_network = network is None
+        self.q_network = (
+            network
+            if network is not None
+            else QNetwork(self.observation_dim, self.action_dim)
+        ).to(self.device)
+        self._validate_network(self.q_network)
+        self.target_network = copy.deepcopy(self.q_network).to(self.device)
         self.target_network.eval()
         self.optimizer = torch.optim.Adam(
             self.q_network.parameters(), lr=self.config.learning_rate
@@ -156,8 +159,9 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 1,
+                "version": 2,
                 "config": asdict(self.config),
+                "uses_default_network": self._uses_default_network,
                 "observation_shape": self.observation_shape,
                 "action_dim": self.action_dim,
                 "q_network": self.q_network.state_dict(),
@@ -182,6 +186,7 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
         """Load a checkpoint and validate that it matches ``env``."""
 
         device = resolve_device(kwargs.pop("device", "auto"))
+        network = kwargs.pop("network", None)
         callback = kwargs.pop("callback", None)
         logger = kwargs.pop("logger", None)
         if kwargs:
@@ -193,10 +198,14 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
             checkpoint = torch.load(path, map_location=device)
 
         config_data = dict(checkpoint["config"])
-        config_data["hidden_sizes"] = tuple(config_data["hidden_sizes"])
+        if not checkpoint["uses_default_network"] and network is None:
+            raise ValueError(
+                "loading a custom-network checkpoint requires network=nn.Module"
+            )
         algorithm = cls(
             env,
-            DoubleDQNConfig(**config_data),
+            network=network,
+            config=DQNConfig(**config_data),
             device=device,
             callback=callback,
             logger=logger,
@@ -219,13 +228,6 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
         algorithm.episode_returns = list(checkpoint["episode_returns"])
         algorithm.episode_lengths = list(checkpoint["episode_lengths"])
         return algorithm
-
-    def _new_network(self) -> nn.Module:
-        return QNetwork(
-            self.observation_dim,
-            self.action_dim,
-            self.config.hidden_sizes,
-        ).to(self.device)
 
     def _make_exploration(self, duration: int) -> EpsilonGreedyPolicy:
         return EpsilonGreedyPolicy(
@@ -276,15 +278,29 @@ class DoubleDQN(OffPolicyAlgorithm[np.ndarray, int]):
 
     @torch.no_grad()
     def _td_target(self, batch: ReplayBatch) -> torch.Tensor:
-        next_actions = self.q_network(batch.next_observations).argmax(
-            dim=1, keepdim=True
-        )
-        next_q_values = self.target_network(batch.next_observations).gather(
-            1, next_actions
+        next_q_values = (
+            self.target_network(batch.next_observations).max(dim=1, keepdim=True).values
         )
         return (
             batch.rewards + self.config.gamma * (1 - batch.terminated) * next_q_values
         )
+
+    def _validate_network(self, network: nn.Module) -> None:
+        try:
+            with torch.no_grad():
+                output = network(
+                    torch.zeros((1, *self.observation_shape), device=self.device)
+                )
+        except Exception as error:
+            raise ValueError(
+                "network could not process one environment observation"
+            ) from error
+        expected_shape = (1, self.action_dim)
+        if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
+            actual_shape = getattr(output, "shape", None)
+            raise ValueError(
+                f"network must return shape {expected_shape}, got {actual_shape}"
+            )
 
     def _as_observation(self, observation: Any) -> np.ndarray:
         array = np.asarray(observation, dtype=np.float32)
