@@ -17,7 +17,7 @@ def test_dqn_improves_on_cartpole() -> None:
         buffer_size=8_000,
         batch_size=64,
         learning_starts=500,
-        train_frequency=4,
+        train_freq=4,
         target_update_interval=250,
         exploration_steps=2_100,
         seed=11,

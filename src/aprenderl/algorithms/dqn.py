@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.networks import QNetwork
 from aprenderl.policies import EpsilonGreedyPolicy, LinearSchedule
+from aprenderl.types import Transition
 from aprenderl.utils import resolve_device
 
 
@@ -31,7 +33,7 @@ class DQNConfig:
     buffer_size: int = 50_000
     batch_size: int = 64
     learning_starts: int = 1_000
-    train_frequency: int = 4
+    train_freq: int = 4
     gradient_steps: int = 1
     target_update_interval: int = 500
     exploration_initial_epsilon: float = 1.0
@@ -52,7 +54,7 @@ class DQNConfig:
             raise ValueError("batch_size cannot exceed buffer_size")
         if self.learning_starts < 0:
             raise ValueError("learning_starts cannot be negative")
-        if self.train_frequency <= 0 or self.gradient_steps <= 0:
+        if self.train_freq <= 0 or self.gradient_steps <= 0:
             raise ValueError("training frequencies must be positive")
         if self.target_update_interval <= 0:
             raise ValueError("target_update_interval must be positive")
@@ -100,17 +102,14 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         self.observation_shape = tuple(env.observation_space.shape)
         self.observation_dim = int(np.prod(self.observation_shape))
         self.action_dim = int(env.action_space.n)
-        replay_buffer = ReplayBuffer(
+        self.action_start = int(env.action_space.start)
+        self.replay_buffer = ReplayBuffer(
             self.config.buffer_size,
             self.observation_shape,
             seed=self.config.seed,
         )
         super().__init__(
             env,
-            replay_buffer,
-            learning_starts=self.config.learning_starts,
-            train_frequency=self.config.train_frequency,
-            gradient_steps=self.config.gradient_steps,
             seed=self.config.seed,
             callback=callback,
             logger=logger,
@@ -137,19 +136,19 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
 
         return self.exploration.schedule.value(self.num_timesteps)
 
-    def predict(self, observation: np.ndarray, *, deterministic: bool = True) -> int:
+    def predict(self, observation: np.ndarray, *, deterministic: bool = False) -> int:
         """Choose a greedy action or an epsilon-greedy behavior action."""
 
         array = self._as_observation(observation)
         tensor = torch.as_tensor(array, device=self.device).unsqueeze(0)
         with torch.no_grad():
             q_values = self.q_network(tensor).squeeze(0)
-        return self.exploration.select(
+        action = self.exploration.select(
             q_values,
-            lambda: int(self.env.action_space.sample()),
             step=self.num_timesteps,
             deterministic=deterministic,
         )
+        return action + self.action_start
 
     def save(self, path: str | Path) -> None:
         """Save model, optimizer, configuration, and training counters."""
@@ -158,11 +157,12 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 3,
+                "version": 4,
                 "config": asdict(self.config),
                 "uses_default_network": self._uses_default_network,
                 "observation_shape": self.observation_shape,
                 "action_dim": self.action_dim,
+                "action_start": self.action_start,
                 "q_network": self.q_network.state_dict(),
                 "target_network": self.target_network.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
@@ -170,6 +170,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
                 "num_updates": self.num_updates,
                 "episode_returns": self.episode_returns,
                 "episode_lengths": self.episode_lengths,
+                "exploration_rng_state": self.exploration.rng_state,
             },
             checkpoint_path,
         )
@@ -196,13 +197,15 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             checkpoint = torch.load(path, map_location=device)
 
         config_data = dict(checkpoint["config"])
+        if "train_frequency" in config_data:
+            config_data["train_freq"] = config_data.pop("train_frequency")
         if "exploration_fraction" in config_data:
             # Version 2 resolved the fraction on the first learn() call and
             # persisted the resulting duration separately.
             config_data.pop("exploration_fraction")
-            config_data["exploration_steps"] = checkpoint.get(
-                "exploration_duration"
-            ) or 1
+            config_data["exploration_steps"] = (
+                checkpoint.get("exploration_duration") or 1
+            )
         if not checkpoint["uses_default_network"] and network is None:
             raise ValueError(
                 "loading a custom-network checkpoint requires network=nn.Module"
@@ -219,6 +222,8 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             raise ValueError("checkpoint observation shape does not match environment")
         if int(checkpoint["action_dim"]) != algorithm.action_dim:
             raise ValueError("checkpoint action count does not match environment")
+        if int(checkpoint.get("action_start", 0)) != algorithm.action_start:
+            raise ValueError("checkpoint action start does not match environment")
 
         algorithm.q_network.load_state_dict(checkpoint["q_network"])
         algorithm.target_network.load_state_dict(checkpoint["target_network"])
@@ -227,6 +232,8 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         algorithm.num_updates = int(checkpoint["num_updates"])
         algorithm.episode_returns = list(checkpoint["episode_returns"])
         algorithm.episode_lengths = list(checkpoint["episode_lengths"])
+        if "exploration_rng_state" in checkpoint:
+            algorithm.exploration.rng_state = checkpoint["exploration_rng_state"]
         return algorithm
 
     def _make_exploration(self) -> EpsilonGreedyPolicy:
@@ -242,8 +249,28 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
     def _sample_action(self, observation: np.ndarray) -> int:
         return self.predict(observation, deterministic=False)
 
-    def _has_enough_replay(self) -> bool:
-        return len(self.replay_buffer) >= self.config.batch_size
+    def _update_from_transition(
+        self, transition: Transition[np.ndarray, int]
+    ) -> dict[str, float | int]:
+        self.replay_buffer.add(
+            np.asarray(transition.observation, dtype=np.float32),
+            transition.action - self.action_start,
+            transition.reward,
+            np.asarray(transition.next_observation, dtype=np.float32),
+            transition.terminated,
+            transition.truncated,
+        )
+        next_timestep = self.num_timesteps + 1
+        ready_to_train = (
+            next_timestep >= self.config.learning_starts
+            and next_timestep % self.config.train_freq == 0
+            and len(self.replay_buffer) >= self.config.batch_size
+        )
+        latest_metrics: dict[str, float | int] = {}
+        if ready_to_train:
+            for _ in range(self.config.gradient_steps):
+                latest_metrics = self._train_step()
+        return latest_metrics
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)
@@ -265,7 +292,15 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             "rollout/epsilon": self.epsilon,
         }
 
-    def _after_step(self) -> None:
+    def _progress_metrics(
+        self,
+        training_metrics: Mapping[str, float | int] | None = None,
+    ) -> dict[str, str | int]:
+        metrics = super()._progress_metrics(training_metrics)
+        metrics["epsilon"] = f"{self.epsilon:.3f}"
+        return metrics
+
+    def _after_step(self, transition: Transition[np.ndarray, int]) -> None:
         if self.num_timesteps % self.config.target_update_interval == 0:
             self.target_network.load_state_dict(self.q_network.state_dict())
 

@@ -6,6 +6,9 @@ from aprenderl.algorithms.base import (
     OnPolicyAlgorithm,
 )
 from aprenderl.algorithms.dqn import DQN, DQNConfig
+from aprenderl.algorithms.q_learning import QLearning, QLearningConfig
+from aprenderl.algorithms.reinforce import REINFORCE, REINFORCEConfig
+from aprenderl.algorithms.sarsa import SARSA, SARSAConfig
 
 __all__ = [
     "BaseAlgorithm",
@@ -13,4 +16,10 @@ __all__ = [
     "DQNConfig",
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
+    "QLearning",
+    "QLearningConfig",
+    "REINFORCE",
+    "REINFORCEConfig",
+    "SARSA",
+    "SARSAConfig",
 ]

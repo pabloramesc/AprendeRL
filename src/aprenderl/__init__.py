@@ -2,10 +2,16 @@
 
 from aprenderl.algorithms import (
     DQN,
+    REINFORCE,
+    SARSA,
     BaseAlgorithm,
     DQNConfig,
     OffPolicyAlgorithm,
     OnPolicyAlgorithm,
+    QLearning,
+    QLearningConfig,
+    REINFORCEConfig,
+    SARSAConfig,
 )
 
 __all__ = [
@@ -14,6 +20,12 @@ __all__ = [
     "DQNConfig",
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
+    "QLearning",
+    "QLearningConfig",
+    "REINFORCE",
+    "REINFORCEConfig",
+    "SARSA",
+    "SARSAConfig",
 ]
 
 __version__ = "0.1.0"

@@ -1,4 +1,4 @@
-"""Algorithm interfaces and reusable environment-interaction loops."""
+"""Algorithm interfaces and the shared environment-interaction loop."""
 
 from __future__ import annotations
 
@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 import gymnasium as gym
-import numpy as np
+from tqdm.auto import tqdm
 from typing_extensions import Self
 
-from aprenderl.buffers import ReplayBuffer, RolloutBuffer
 from aprenderl.callbacks import BaseCallback, CallbackList
 from aprenderl.logging import TrainingLogger
 from aprenderl.types import EpisodeMetrics, Transition
@@ -22,7 +21,7 @@ ActionT = TypeVar("ActionT")
 
 
 class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
-    """Interface and shared state implemented by every algorithm."""
+    """Common interface and state for every AprendeRL algorithm."""
 
     def __init__(
         self,
@@ -52,12 +51,12 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
         env.action_space.seed(seed)
 
     @abstractmethod
-    def learn(self, total_timesteps: int) -> Self:
+    def learn(self, total_timesteps: int, *, progress_bar: bool = True) -> Self:
         """Train for ``total_timesteps`` interactions with the environment."""
 
     @abstractmethod
     def predict(
-        self, observation: ObservationT, *, deterministic: bool = True
+        self, observation: ObservationT, *, deterministic: bool = False
     ) -> ActionT:
         """Choose an action for one observation."""
 
@@ -69,6 +68,67 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
     @abstractmethod
     def load(cls, path: str | Path, env: Any, **kwargs: Any) -> Self:
         """Restore an algorithm checkpoint for ``env``."""
+
+    def _learn_online(self, total_timesteps: int, *, progress_bar: bool) -> Self:
+        """Run the explicit one-environment loop shared by current algorithms."""
+
+        if total_timesteps <= 0:
+            raise ValueError("total_timesteps must be positive")
+        self.callback.on_training_start(self)
+        latest_training_metrics: dict[str, float | int] = {}
+
+        with tqdm(
+            total=total_timesteps,
+            desc=self.__class__.__name__,
+            unit="step",
+            disable=not progress_bar,
+        ) as progress:
+            for _ in range(total_timesteps):
+                observation = self._current_observation()
+                action = self._sample_action(observation)
+                next_observation, reward, terminated, truncated, info = self.env.step(
+                    action
+                )
+                transition = Transition(
+                    observation=observation,
+                    action=action,
+                    reward=float(reward),
+                    next_observation=next_observation,
+                    terminated=bool(terminated),
+                    truncated=bool(truncated),
+                    info=info,
+                )
+
+                training_metrics = dict(self._update_from_transition(transition))
+                if training_metrics:
+                    latest_training_metrics = training_metrics
+                    self.logger.record(training_metrics)
+                self._record_step(transition)
+                self._after_step(transition)
+
+                progress.update(1)
+                progress.set_postfix(
+                    self._progress_metrics(latest_training_metrics),
+                    refresh=False,
+                )
+                if not self.callback.on_step(self, transition):
+                    break
+
+        self.callback.on_training_end(self)
+        return self
+
+    @abstractmethod
+    def _sample_action(self, observation: ObservationT) -> ActionT:
+        """Select the action used for the next environment interaction."""
+
+    @abstractmethod
+    def _update_from_transition(
+        self, transition: Transition[ObservationT, ActionT]
+    ) -> Mapping[str, float | int]:
+        """Process one transition and return any new training metrics."""
+
+    def _after_step(self, transition: Transition[ObservationT, ActionT]) -> None:
+        """Run optional bookkeeping after the transition has been recorded."""
 
     def _current_observation(self) -> ObservationT:
         if self._observation is None:
@@ -107,6 +167,22 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
         else:
             self._observation = transition.next_observation
 
+    def _progress_metrics(
+        self,
+        training_metrics: Mapping[str, float | int] | None = None,
+    ) -> dict[str, str | int]:
+        """Format compact metrics for a training progress bar."""
+
+        metrics: dict[str, str | int] = {
+            "episodes": len(self.episode_returns),
+            "updates": self.num_updates,
+        }
+        if self.episode_returns:
+            metrics["return"] = f"{self.episode_returns[-1]:.1f}"
+        if training_metrics and "train/loss" in training_metrics:
+            metrics["loss"] = f"{float(training_metrics['train/loss']):.4f}"
+        return metrics
+
     @staticmethod
     def _make_callback(
         callback: BaseCallback | list[BaseCallback] | None,
@@ -119,185 +195,18 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
 
 
 class OffPolicyAlgorithm(BaseAlgorithm[ObservationT, ActionT], ABC):
-    """Reusable replay-based training loop for off-policy algorithms."""
+    """Base class for algorithms that learn a policy other than behavior."""
 
-    def __init__(
-        self,
-        env: gym.Env[Any, Any],
-        replay_buffer: ReplayBuffer,
-        *,
-        learning_starts: int,
-        train_frequency: int,
-        gradient_steps: int,
-        seed: int | None,
-        callback: BaseCallback | list[BaseCallback] | None = None,
-        logger: TrainingLogger | None = None,
-        log_interval: int = 10,
-    ) -> None:
-        super().__init__(
-            env,
-            seed=seed,
-            callback=callback,
-            logger=logger,
-            log_interval=log_interval,
-        )
-        self.replay_buffer = replay_buffer
-        self.learning_starts = learning_starts
-        self.train_frequency = train_frequency
-        self.gradient_steps = gradient_steps
+    def learn(self, total_timesteps: int, *, progress_bar: bool = True) -> Self:
+        """Learn online while allowing algorithm-specific experience reuse."""
 
-    def learn(self, total_timesteps: int) -> Self:
-        """Collect transitions and perform scheduled replay updates."""
-
-        if total_timesteps <= 0:
-            raise ValueError("total_timesteps must be positive")
-        self._before_learn(total_timesteps)
-        self.callback.on_training_start(self)
-
-        for _ in range(total_timesteps):
-            observation = self._current_observation()
-            action = self._sample_action(observation)
-            next_observation, reward, terminated, truncated, info = self.env.step(
-                action
-            )
-            transition = Transition(
-                observation=observation,
-                action=action,
-                reward=float(reward),
-                next_observation=next_observation,
-                terminated=bool(terminated),
-                truncated=bool(truncated),
-                info=info,
-            )
-            self.replay_buffer.add(
-                np.asarray(observation, dtype=np.float32),
-                action,
-                transition.reward,
-                np.asarray(next_observation, dtype=np.float32),
-                transition.terminated,
-                transition.truncated,
-            )
-            self._record_step(transition)
-
-            if self._ready_to_train():
-                for _ in range(self.gradient_steps):
-                    self.logger.record(self._train_step())
-            self._after_step()
-            if not self.callback.on_step(self, transition):
-                break
-
-        self.callback.on_training_end(self)
-        return self
-
-    def _ready_to_train(self) -> bool:
-        return (
-            self.num_timesteps >= self.learning_starts
-            and self.num_timesteps % self.train_frequency == 0
-            and self._has_enough_replay()
-        )
-
-    @abstractmethod
-    def _sample_action(self, observation: ObservationT) -> ActionT:
-        """Select the behavior action used to collect a transition."""
-
-    @abstractmethod
-    def _has_enough_replay(self) -> bool:
-        """Whether the replay buffer contains one complete training batch."""
-
-    @abstractmethod
-    def _train_step(self) -> Mapping[str, float | int]:
-        """Perform one optimizer update and return scalar metrics."""
-
-    def _before_learn(self, total_timesteps: int) -> None:
-        """Prepare algorithm-specific schedules before collection."""
-
-    def _after_step(self) -> None:
-        """Run algorithm-specific bookkeeping after an environment step."""
+        return self._learn_online(total_timesteps, progress_bar=progress_bar)
 
 
 class OnPolicyAlgorithm(BaseAlgorithm[ObservationT, ActionT], ABC):
-    """Reusable collect-then-update loop for future on-policy algorithms."""
+    """Base class for algorithms updated from their current behavior policy."""
 
-    def __init__(
-        self,
-        env: gym.Env[Any, Any],
-        rollout_buffer: RolloutBuffer,
-        *,
-        seed: int | None,
-        callback: BaseCallback | list[BaseCallback] | None = None,
-        logger: TrainingLogger | None = None,
-        log_interval: int = 10,
-    ) -> None:
-        super().__init__(
-            env,
-            seed=seed,
-            callback=callback,
-            logger=logger,
-            log_interval=log_interval,
-        )
-        self.rollout_buffer = rollout_buffer
+    def learn(self, total_timesteps: int, *, progress_bar: bool = True) -> Self:
+        """Learn online from actions sampled from the current policy."""
 
-    def learn(self, total_timesteps: int) -> Self:
-        """Alternate ordered rollout collection and policy updates."""
-
-        if total_timesteps <= 0:
-            raise ValueError("total_timesteps must be positive")
-        remaining = total_timesteps
-        self.callback.on_training_start(self)
-        continue_training = True
-        while remaining > 0 and continue_training:
-            rollout_steps = min(remaining, self.rollout_buffer.capacity)
-            continue_training = self._collect_rollout(rollout_steps)
-            self.rollout_buffer.compute_returns_and_advantages()
-            self.logger.record(self._update_from_rollout())
-            self.num_updates += 1
-            remaining -= rollout_steps
-        self.callback.on_training_end(self)
-        return self
-
-    def _collect_rollout(self, steps: int) -> bool:
-        self.rollout_buffer.reset()
-        for _ in range(steps):
-            observation = self._current_observation()
-            action, value, log_probability = self._sample_rollout_action(observation)
-            next_observation, reward, terminated, truncated, info = self.env.step(
-                action
-            )
-            next_value = 0.0 if terminated else self._estimate_value(next_observation)
-            transition = Transition(
-                observation=observation,
-                action=action,
-                reward=float(reward),
-                next_observation=next_observation,
-                terminated=bool(terminated),
-                truncated=bool(truncated),
-                info=info,
-            )
-            self.rollout_buffer.add(
-                np.asarray(observation, dtype=np.float32),
-                np.asarray(action),
-                transition.reward,
-                transition.terminated,
-                transition.truncated,
-                value,
-                next_value,
-                log_probability,
-            )
-            self._record_step(transition)
-            if not self.callback.on_step(self, transition):
-                return False
-        return True
-
-    @abstractmethod
-    def _sample_rollout_action(
-        self, observation: ObservationT
-    ) -> tuple[ActionT, float, float]:
-        """Return an action, value estimate, and action log probability."""
-
-    @abstractmethod
-    def _estimate_value(self, observation: ObservationT) -> float:
-        """Estimate the value of an observation for bootstrapping."""
-
-    @abstractmethod
-    def _update_from_rollout(self) -> Mapping[str, float | int]:
-        """Update the current policy from its freshly collected rollout."""
+        return self._learn_online(total_timesteps, progress_bar=progress_bar)

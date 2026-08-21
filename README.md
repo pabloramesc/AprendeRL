@@ -5,8 +5,8 @@ from scratch with PyTorch and Gymnasium. Its API is intentionally familiar to
 Stable-Baselines3 users, while its training loops and update equations remain
 small enough to read in one sitting.
 
-Version 0.1 includes vanilla DQN for a single environment with vector
-observations and discrete actions.
+The implemented algorithms are off-policy tabular Q-Learning and vanilla DQN,
+plus the on-policy tabular SARSA and REINFORCE methods.
 
 ## Install
 
@@ -18,21 +18,15 @@ python -m pip install -e ".[dev]"
 
 ```python
 import gymnasium as gym
-
-from aprenderl import DQN, DQNConfig
+from aprenderl import DQN
 from aprenderl.utils import evaluate_policy
 
 train_env = gym.make("CartPole-v1")
 eval_env = gym.make("CartPole-v1")
 
-agent = DQN(
-    train_env,
-    config=DQNConfig(seed=42),
-    device="auto",
-)
+agent = DQN(train_env)
 agent.learn(total_timesteps=20_000)
 result = evaluate_policy(agent, eval_env, episodes=10, seed=1_042)
-agent.save("artifacts/cartpole.pt")
 
 print(result.mean_return)
 train_env.close()
@@ -64,20 +58,22 @@ agent = DQN(train_env, network)
 When `network` is omitted, AprendeRL creates its default MLP. A target network
 is made by deep-copying the supplied module.
 
-## CartPole example
+## Example notebooks
 
-```bash
-python examples/train_cartpole.py --timesteps 20000
-```
+- [DQN](examples/train_dqn.ipynb)
+- [Tabular Q-Learning](examples/train_qlearning.ipynb)
+- [Tabular SARSA](examples/train_sarsa.ipynb)
+- [REINFORCE](examples/train_reinforce.ipynb)
 
-The script reports training and evaluation returns and writes a checkpoint to
-`artifacts/dqn_cartpole.pt` by default.
+Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
+the beginning, so you can switch to another environment compatible with the
+algorithm's observation and action spaces.
 
 ## Repository layout
 
 ```text
 src/aprenderl/
-├── algorithms/      # Interfaces, reusable loops, and DQN updates
+├── algorithms/      # Interfaces, value-based methods, and REINFORCE
 ├── buffers/         # Replay and ordered rollout buffers
 ├── callbacks/       # Training lifecycle hooks
 ├── distributions/   # Reusable action distributions
@@ -90,10 +86,14 @@ src/aprenderl/
 └── utils/           # Seeding, devices, and evaluation
 ```
 
-Gymnasium's `terminated` and `truncated` signals are stored separately. DQN
-stops bootstrapping only at true terminal states; a time-limit truncation still
-receives a value target. Evaluation uses a separate environment so it cannot
-disturb training state.
+Gymnasium's `terminated` and `truncated` signals are stored separately.
+Value-based algorithms stop bootstrapping only at true terminal states;
+REINFORCE updates only after a complete Gymnasium episode. Evaluation uses a
+separate environment so it cannot disturb training state.
+
+See the [algorithm documentation index](docs/algorithms.md) for notation,
+off-policy and on-policy classifications, and a separate mathematical guide for
+every implemented algorithm.
 
 See [ROADMAP.md](ROADMAP.md) for the planned classical RL, DQN, policy-gradient,
 continuous-control, offline, model-based, recurrent, and multi-agent phases.

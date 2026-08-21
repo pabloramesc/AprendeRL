@@ -13,6 +13,8 @@ mathematics visible and avoiding framework machinery for its own sake.
 Bandits, value iteration, policy iteration, Monte Carlo control, SARSA, and
 Q-learning.
 
+Implemented so far: SARSA and Q-learning.
+
 ### 2. DQN family
 
 Double DQN, Dueling DQN, prioritized replay, n-step returns, NoisyNet, C51,

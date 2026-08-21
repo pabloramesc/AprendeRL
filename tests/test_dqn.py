@@ -1,6 +1,7 @@
 """Unit and interaction tests for vanilla DQN."""
 
 import gymnasium as gym
+import numpy as np
 import pytest
 import torch
 from torch import nn
@@ -8,6 +9,7 @@ from torch import nn
 from aprenderl import DQN, DQNConfig
 from aprenderl.buffers import ReplayBatch
 from aprenderl.networks import QNetwork
+from aprenderl.types import Transition
 
 
 def small_config(**overrides: object) -> DQNConfig:
@@ -15,7 +17,7 @@ def small_config(**overrides: object) -> DQNConfig:
         "buffer_size": 64,
         "batch_size": 8,
         "learning_starts": 8,
-        "train_frequency": 1,
+        "train_freq": 1,
         "target_update_interval": 5,
         "exploration_steps": 12,
         "seed": 3,
@@ -199,3 +201,32 @@ def test_network_output_shape_is_validated() -> None:
             )
     finally:
         env.close()
+
+
+def test_discrete_action_space_offsets_are_supported() -> None:
+    env = gym.Env()
+    env.observation_space = gym.spaces.Box(-1.0, 1.0, shape=(1,))
+    env.action_space = gym.spaces.Discrete(2, start=5)
+    network = nn.Sequential(nn.Flatten(), nn.Linear(1, 2))
+    try:
+        agent = DQN(env, network, config=small_config(), device="cpu")
+        with torch.no_grad():
+            network[1].weight.zero_()
+            network[1].bias.copy_(torch.tensor([0.0, 1.0]))
+        action = agent.predict(np.zeros(1, dtype=np.float32), deterministic=True)
+        agent._update_from_transition(
+            Transition(
+                np.zeros(1, dtype=np.float32),
+                action,
+                0.0,
+                np.zeros(1, dtype=np.float32),
+                False,
+                False,
+                {},
+            )
+        )
+    finally:
+        env.close()
+
+    assert action == 6
+    assert agent.replay_buffer.actions[0, 0] == 1
