@@ -24,13 +24,15 @@ QR-DQN, and Rainbow.
 
 REINFORCE, learned baselines, actor–critic, A2C, GAE, and PPO.
 
-Implemented so far: REINFORCE with an optional learned state-value baseline and
-one-step actor–critic.
+Implemented so far: REINFORCE with an optional learned state-value baseline,
+one-step actor–critic, and single-environment A2C with GAE.
 
 ### 4. Continuous control
 
-DDPG, TD3, SAC, automatic entropy tuning, and discrete SAC. This phase adds
-Gaussian, squashed-Gaussian, and deterministic action components.
+DDPG, TD3, SAC, automatic entropy tuning, and discrete SAC. The on-policy
+REINFORCE, Actor-Critic, and A2C implementations already support continuous
+action spaces with plain or squashed diagonal-Gaussian policies; this phase adds
+dedicated off-policy continuous-control methods and deterministic actors.
 
 ### 5. Goal-conditioned and exploration methods
 

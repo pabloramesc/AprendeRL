@@ -6,9 +6,12 @@ Stable-Baselines3 users, while its training loops and update equations remain
 small enough to read in one sitting.
 
 The implemented algorithms are off-policy tabular Q-Learning and vanilla DQN,
-plus the on-policy tabular SARSA, REINFORCE, and one-step Actor-Critic methods.
-REINFORCE supports both its vanilla form and an optional learned state-value
-baseline.
+plus the on-policy tabular SARSA, REINFORCE, one-step Actor-Critic, and A2C
+methods. REINFORCE supports both its vanilla form and an optional learned
+state-value baseline; A2C adds multi-step generalized advantage estimation.
+REINFORCE, Actor-Critic, and A2C support discrete and continuous `Box` actions.
+Finite bounds use a squashed diagonal Gaussian; fully unbounded actions use a
+plain diagonal Gaussian.
 
 ## Install
 
@@ -58,7 +61,11 @@ is made by deep-copying the supplied module.
 - [Tabular Q-Learning](examples/train_qlearning.ipynb)
 - [Tabular SARSA](examples/train_sarsa.ipynb)
 - [REINFORCE](examples/train_reinforce.ipynb)
+- [REINFORCE on continuous actions](examples/train_reinforce_pendulum.ipynb)
 - [Actor-Critic](examples/train_actor_critic.ipynb)
+- [Actor-Critic on continuous actions](examples/train_actor_critic_pendulum.ipynb)
+- [A2C](examples/train_a2c.ipynb)
+- [A2C on continuous actions](examples/train_a2c_pendulum.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
@@ -71,7 +78,7 @@ src/aprenderl/
 ├── algorithms/      # Interfaces, value-based methods, and policy gradients
 ├── buffers/         # Replay and ordered rollout buffers
 ├── callbacks/       # Training lifecycle hooks
-├── distributions/   # Reusable action distributions
+├── distributions/   # Categorical, Gaussian, and squashed Gaussian policies
 ├── envs/            # Gymnasium wrappers
 ├── logging/         # Scalar metric collection
 ├── networks/        # PyTorch policy, value, and Q-network components
@@ -82,9 +89,9 @@ src/aprenderl/
 ```
 
 Gymnasium's `terminated` and `truncated` signals are stored separately.
-Value-based algorithms and Actor-Critic stop bootstrapping only at true terminal
-states; REINFORCE updates only after a complete Gymnasium episode. Use a
-separate evaluation environment if training will continue afterward, so
+Value-based algorithms, Actor-Critic, and A2C stop bootstrapping only at true
+terminal states; REINFORCE updates only after a complete Gymnasium episode. Use
+a separate evaluation environment if training will continue afterward, so
 evaluation does not disturb the training state.
 
 See the [algorithm documentation index](docs/algorithms.md) for notation,

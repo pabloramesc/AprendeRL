@@ -1,4 +1,4 @@
-"""Monte Carlo REINFORCE for discrete action spaces."""
+"""Monte Carlo REINFORCE for discrete and continuous action spaces."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ from typing_extensions import Self
 
 from aprenderl.algorithms.base import OnPolicyAlgorithm
 from aprenderl.callbacks import BaseCallback
-from aprenderl.distributions import CategoricalDistribution
 from aprenderl.logging import TrainingLogger
-from aprenderl.networks import PolicyNetwork, ValueNetwork
+from aprenderl.networks import ValueNetwork
+from aprenderl.policies.action_space import PolicyAction, PolicyActionSpace
 from aprenderl.types import Transition
 from aprenderl.utils import resolve_device
 
@@ -54,14 +54,13 @@ class REINFORCEConfig:
             raise ValueError("log_interval must be positive")
 
 
-class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
-    """Episodic policy gradient for discrete actions.
+class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
+    """Episodic policy gradient for discrete or continuous ``Box`` actions.
 
     The policy is updated only from complete episodes. Each action is weighted
     by its discounted reward-to-go. When ``use_baseline`` is enabled, a learned
     state-value baseline is subtracted from that return. Policy weights can be
-    normalized across an update batch to reduce gradient variance. A custom
-    policy network must map a batch of observations to one logit per action.
+    normalized across an update batch to reduce gradient variance.
     """
 
     def __init__(
@@ -80,15 +79,17 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
 
         if not isinstance(env.observation_space, gym.spaces.Box):
             raise TypeError("REINFORCE requires a Box observation space")
-        if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise TypeError("REINFORCE requires a Discrete action space")
         if env.observation_space.shape is None or not env.observation_space.shape:
             raise ValueError("the observation space must have a non-empty shape")
 
         self.observation_shape = tuple(env.observation_space.shape)
         self.observation_dim = int(np.prod(self.observation_shape))
-        self.action_dim = int(env.action_space.n)
-        self.action_start = int(env.action_space.start)
+        self.policy_action_space = PolicyActionSpace(
+            env.action_space, self.device, "REINFORCE"
+        )
+        self.action_dim = self.policy_action_space.dim
+        self.action_shape = self.policy_action_space.shape
+        self.action_start = self.policy_action_space.start
         super().__init__(
             env,
             seed=self.config.seed,
@@ -101,7 +102,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         self.policy_network = (
             network
             if network is not None
-            else PolicyNetwork(self.observation_dim, self.action_dim)
+            else self.policy_action_space.default_network(self.observation_dim)
         ).to(self.device)
         self._validate_network(self.policy_network)
         self.optimizer = torch.optim.Adam(
@@ -129,22 +130,26 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
             self.value_optimizer = None
 
         self._episode_observations: list[np.ndarray] = []
-        self._episode_actions: list[int] = []
+        self._episode_actions: list[int | np.ndarray] = []
         self._episode_rewards: list[float] = []
         self._batch_observations: list[np.ndarray] = []
-        self._batch_actions: list[int] = []
+        self._batch_actions: list[int | np.ndarray] = []
         self._batch_returns: list[float] = []
         self._batch_episodes = 0
 
-    def predict(self, observation: np.ndarray, *, deterministic: bool = False) -> int:
-        """Choose the modal action or sample from the categorical policy."""
+    def predict(
+        self, observation: np.ndarray, *, deterministic: bool = False
+    ) -> PolicyAction:
+        """Choose the modal/mean action or sample from the policy."""
 
         array = self._as_observation(observation)
         tensor = torch.as_tensor(array, device=self.device).unsqueeze(0)
         with torch.no_grad():
-            distribution = CategoricalDistribution(self.policy_network(tensor))
+            distribution = self.policy_action_space.distribution(
+                self.policy_network(tensor)
+            )
             action = distribution.mode() if deterministic else distribution.sample()
-        return int(action.item()) + self.action_start
+        return self.policy_action_space.action_from_tensor(action)
 
     def save(self, path: str | Path) -> None:
         """Save policy, optimizer, configuration, and training counters."""
@@ -153,13 +158,14 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 2,
+                "version": 3,
                 "config": asdict(self.config),
                 "uses_default_network": self._uses_default_network,
                 "uses_default_value_network": self._uses_default_value_network,
                 "observation_shape": self.observation_shape,
                 "action_dim": self.action_dim,
                 "action_start": self.action_start,
+                "action_space": self.policy_action_space.checkpoint_state(),
                 "policy_network": self.policy_network.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "value_network": (
@@ -224,17 +230,20 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
             callback=callback,
             logger=logger,
         )
-        checkpoint_space = (
-            tuple(checkpoint["observation_shape"]),
-            int(checkpoint["action_dim"]),
-            int(checkpoint["action_start"]),
+        observation_matches = (
+            tuple(checkpoint["observation_shape"]) == algorithm.observation_shape
         )
-        environment_space = (
-            algorithm.observation_shape,
-            algorithm.action_dim,
-            algorithm.action_start,
-        )
-        if checkpoint_space != environment_space:
+        action_state = checkpoint.get("action_space")
+        if action_state is None:  # Backward compatibility with discrete checkpoints.
+            action_matches = not algorithm.policy_action_space.continuous and (
+                int(checkpoint["action_dim"]),
+                int(checkpoint["action_start"]),
+            ) == (algorithm.action_dim, algorithm.action_start)
+        else:
+            action_matches = algorithm.policy_action_space.matches_checkpoint(
+                action_state
+            )
+        if not observation_matches or not action_matches:
             raise ValueError("checkpoint spaces do not match environment")
 
         algorithm.policy_network.load_state_dict(checkpoint["policy_network"])
@@ -249,16 +258,18 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         algorithm.episode_lengths = list(checkpoint["episode_lengths"])
         return algorithm
 
-    def _sample_action(self, observation: np.ndarray) -> int:
+    def _sample_action(self, observation: np.ndarray) -> PolicyAction:
         return self.predict(observation, deterministic=False)
 
     def _update_from_transition(
-        self, transition: Transition[np.ndarray, int]
+        self, transition: Transition[np.ndarray, PolicyAction]
     ) -> dict[str, float | int]:
         self._episode_observations.append(
             np.asarray(transition.observation, dtype=np.float32)
         )
-        self._episode_actions.append(transition.action - self.action_start)
+        self._episode_actions.append(
+            self.policy_action_space.action_for_storage(transition.action)
+        )
         self._episode_rewards.append(transition.reward)
         if not transition.done:
             return {}
@@ -290,9 +301,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         observations = torch.as_tensor(
             np.asarray(self._batch_observations), device=self.device
         )
-        actions = torch.as_tensor(
-            self._batch_actions, dtype=torch.int64, device=self.device
-        )
+        actions = self.policy_action_space.action_batch_tensor(self._batch_actions)
         returns = torch.as_tensor(
             self._batch_returns, dtype=torch.float32, device=self.device
         )
@@ -311,7 +320,9 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
                 policy_weights.std(unbiased=False) + 1e-8
             )
 
-        distribution = CategoricalDistribution(self.policy_network(observations))
+        distribution = self.policy_action_space.distribution(
+            self.policy_network(observations)
+        )
         log_probabilities = distribution.log_prob(actions)
         entropy = distribution.entropy().mean()
         policy_loss = -(log_probabilities * policy_weights).mean()
@@ -372,21 +383,9 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         return metrics
 
     def _validate_network(self, network: nn.Module) -> None:
-        try:
-            with torch.no_grad():
-                output = network(
-                    torch.zeros((1, *self.observation_shape), device=self.device)
-                )
-        except Exception as error:
-            raise ValueError(
-                "network could not process one environment observation"
-            ) from error
-        expected_shape = (1, self.action_dim)
-        if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
-            actual_shape = getattr(output, "shape", None)
-            raise ValueError(
-                f"network must return shape {expected_shape}, got {actual_shape}"
-            )
+        self.policy_action_space.validate_network(
+            network, self.observation_shape, "network"
+        )
 
     def _validate_value_network(self, network: nn.Module) -> None:
         try:

@@ -10,6 +10,7 @@ viewers.
 - [Notation](#notation)
   - [Termination versus truncation](#termination-versus-truncation)
   - [Epsilon-greedy exploration](#epsilon-greedy-exploration)
+  - [Policy-gradient action distributions](#policy-gradient-action-distributions)
 - [Off-policy algorithms](#off-policy-algorithms)
   - [Tabular Q-Learning](#tabular-q-learning)
   - [Deep Q-Network (DQN)](#deep-q-network-dqn)
@@ -17,6 +18,7 @@ viewers.
   - [Tabular SARSA](#tabular-sarsa)
   - [REINFORCE](#reinforce)
   - [Actor-Critic](#actor-critic)
+  - [A2C](#a2c)
 
 ## Notation
 
@@ -44,7 +46,8 @@ Q-Learning and DQN approximate this fixed point with greedy one-step
 temporal-difference targets. SARSA uses a one-step target from its current
 behavior policy. REINFORCE optimizes a parameterized policy from sampled
 returns, while Actor-Critic uses a learned value function to construct a
-one-step policy-gradient signal.
+one-step policy-gradient signal. A2C extends that update to multi-step
+generalized advantage estimates.
 
 ### Termination versus truncation
 
@@ -82,6 +85,22 @@ $$
 
 Deterministic prediction always uses the greedy action.
 
+### Policy-gradient action distributions
+
+REINFORCE, Actor-Critic, and A2C accept either `Discrete` actions or
+floating-point `Box` actions. A discrete policy produces categorical logits. A
+continuous policy produces one Gaussian mean and learned log standard deviation
+per flattened action dimension. Finite bounds apply `tanh` and rescale the
+result to the environment range; fully unbounded `(-inf, inf)` spaces use the
+plain diagonal Gaussian. Partially or one-sided bounded spaces are rejected
+because they require a different transform. Deterministic prediction uses the
+categorical mode or Gaussian mean, including the finite-bound transformation.
+
+Q-Learning, SARSA, and DQN remain discrete-action algorithms.
+The Gaussian path keeps the on-policy implementations compact and educational;
+dedicated continuous-control methods such as SAC and TD3 will generally be more
+sample efficient once they are implemented.
+
 ## Off-policy algorithms
 
 An **off-policy** algorithm can learn about a target policy from transitions
@@ -111,12 +130,19 @@ epsilon-greedy behavior policy. [Read the full guide](algorithms/sarsa.md).
 
 ### REINFORCE
 
-Optimizes a categorical policy from complete-episode returns, optionally using
-a learned state-value baseline to reduce variance.
+Optimizes a categorical or diagonal-Gaussian policy from complete-episode
+returns, optionally using a learned state-value baseline to reduce variance.
 [Read the full guide](algorithms/reinforce.md).
 
 ### Actor-Critic
 
-Updates a categorical actor and state-value critic from small on-policy
-rollouts, using one-step TD errors as advantage estimates.
+Updates a categorical or diagonal-Gaussian actor and state-value critic from
+small on-policy rollouts, using one-step TD errors as advantage estimates.
 [Read the full guide](algorithms/actor_critic.md).
+
+### A2C
+
+Updates a categorical or diagonal-Gaussian actor and state-value critic after
+fixed-length on-policy rollouts, using generalized advantage estimation to
+combine multi-step reward information with value bootstrapping.
+[Read the full guide](algorithms/a2c.md).

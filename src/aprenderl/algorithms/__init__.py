@@ -1,5 +1,6 @@
 """Learning algorithms and their common interfaces."""
 
+from aprenderl.algorithms.a2c import A2C, A2CConfig
 from aprenderl.algorithms.actor_critic import ActorCritic, ActorCriticConfig
 from aprenderl.algorithms.base import (
     BaseAlgorithm,
@@ -12,6 +13,8 @@ from aprenderl.algorithms.reinforce import REINFORCE, REINFORCEConfig
 from aprenderl.algorithms.sarsa import SARSA, SARSAConfig
 
 __all__ = [
+    "A2C",
+    "A2CConfig",
     "ActorCritic",
     "ActorCriticConfig",
     "BaseAlgorithm",

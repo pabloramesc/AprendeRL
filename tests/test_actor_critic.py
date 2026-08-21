@@ -249,17 +249,13 @@ def test_discrete_action_space_offsets_are_supported() -> None:
     assert action == 6
 
 
-def test_actor_critic_requires_box_observations_and_discrete_actions() -> None:
+def test_actor_critic_requires_box_observations() -> None:
     discrete_observation_env = gym.make("FrozenLake-v1")
-    continuous_action_env = gym.make("Pendulum-v1")
     try:
         with pytest.raises(TypeError, match="Box observation"):
             ActorCritic(discrete_observation_env, device="cpu")
-        with pytest.raises(TypeError, match="Discrete action"):
-            ActorCritic(continuous_action_env, device="cpu")
     finally:
         discrete_observation_env.close()
-        continuous_action_env.close()
 
 
 @pytest.mark.parametrize(

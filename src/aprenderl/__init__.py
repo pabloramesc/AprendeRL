@@ -1,9 +1,11 @@
 """AprendeRL public API."""
 
 from aprenderl.algorithms import (
+    A2C,
     DQN,
     REINFORCE,
     SARSA,
+    A2CConfig,
     ActorCritic,
     ActorCriticConfig,
     BaseAlgorithm,
@@ -17,6 +19,8 @@ from aprenderl.algorithms import (
 )
 
 __all__ = [
+    "A2C",
+    "A2CConfig",
     "ActorCritic",
     "ActorCriticConfig",
     "BaseAlgorithm",

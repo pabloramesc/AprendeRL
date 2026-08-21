@@ -228,17 +228,13 @@ def test_custom_network_and_output_shape_validation(tmp_path) -> None:
         restored_env.close()
 
 
-def test_reinforce_requires_box_observations_and_discrete_actions() -> None:
+def test_reinforce_requires_box_observations() -> None:
     discrete_observation_env = gym.make("FrozenLake-v1")
-    continuous_action_env = gym.make("Pendulum-v1")
     try:
         with pytest.raises(TypeError, match="Box observation"):
             REINFORCE(discrete_observation_env, device="cpu")
-        with pytest.raises(TypeError, match="Discrete action"):
-            REINFORCE(continuous_action_env, device="cpu")
     finally:
         discrete_observation_env.close()
-        continuous_action_env.close()
 
 
 def test_reinforce_config_validates_value_learning_rate() -> None:

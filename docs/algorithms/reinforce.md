@@ -3,19 +3,22 @@
 [Back to the algorithm index](../algorithms.md)
 
 **Policy classification:** On-policy. Every update uses complete trajectories
-sampled from the current categorical policy, before that policy changes.
+sampled from the current stochastic policy, before that policy changes.
 
 **Use when:** observations are numeric `Box` vectors or tensors and actions are
-discrete, and a compact, educational on-policy algorithm is more important than
-sample efficiency. It can run either as vanilla REINFORCE or with a learned
-state-value baseline.
+either discrete or a finite or fully unbounded continuous `Box`, and a compact,
+educational on-policy algorithm is more important than sample efficiency. It
+can run either as vanilla REINFORCE or with a learned state-value baseline.
 
 ## Policy and returns
 
-REINFORCE parameterizes a categorical policy $\pi_\theta(a\mid s)$. The default
-network maps each observation to one logit per action; sampling from the
-resulting categorical distribution provides exploration without a separate
-epsilon schedule.
+REINFORCE parameterizes a stochastic policy $\pi_\theta(a\mid s)$. For
+`Discrete` actions, the default network returns categorical logits. For finite
+`Box` actions, `GaussianPolicyNetwork` returns means and learned,
+state-independent log standard deviations. Finite action ranges pass samples
+through `tanh` and rescale them to the environment bounds, so executed actions
+and their log probabilities remain consistent without clipping. Fully
+unbounded spaces use the Gaussian samples directly.
 
 For each completed episode, AprendeRL computes discounted reward-to-go:
 
@@ -60,7 +63,9 @@ $$
 Adam updates the policy and, when enabled, the value network using independent
 optimizers. Their learning rates are `learning_rate` and `value_learning_rate`;
 both gradient norms are clipped to `max_grad_norm`. Both variants wait for full
-episodes and do not bootstrap at time-limit truncations.
+episodes and do not bootstrap at time-limit truncations. For continuous
+policies, the entropy metric and bonus use the simple diagonal-Gaussian entropy;
+for finite actions this is the pre-squash entropy.
 
 ## Switching on the baseline
 
@@ -73,12 +78,31 @@ config = REINFORCEConfig(
 agent = REINFORCE(env, config=config)
 ```
 
+For continuous actions, the same class selects the Gaussian policy from the
+environment:
+
+```python
+env = gym.make("Pendulum-v1")
+config = REINFORCEConfig(
+    learning_rate=3e-4,
+    value_learning_rate=1e-3,
+    episodes_per_update=4,
+    use_baseline=True,
+)
+agent = REINFORCE(env, config=config).learn(50_000)
+```
+
 With `use_baseline=False` (the default), no value network is created and saved
 checkpoints retain the vanilla behavior. A custom baseline can be supplied as
 `value_network=...`; it must map an observation batch to a tensor of shape
-`(batch_size,)`.
+`(batch_size,)`. A custom discrete policy network returns logits with shape
+`(batch_size, action_count)`. A custom continuous policy network returns a
+`(means, log_stds)` tuple; both tensors have shape
+`(batch_size, flattened_action_size)`.
 
 The implementation is in
 [`src/aprenderl/algorithms/reinforce.py`](../../src/aprenderl/algorithms/reinforce.py),
 and the runnable example is
-[`examples/train_reinforce.ipynb`](../../examples/train_reinforce.ipynb).
+[`examples/train_reinforce.ipynb`](../../examples/train_reinforce.ipynb). The
+continuous example is
+[`examples/train_reinforce_pendulum.ipynb`](../../examples/train_reinforce_pendulum.ipynb).
