@@ -137,4 +137,4 @@ The implementation is in
 the runnable example is
 [`examples/train_a2c.ipynb`](../../examples/train_a2c.ipynb). The continuous
 example is
-[`examples/train_a2c_pendulum.ipynb`](../../examples/train_a2c_pendulum.ipynb).
+[`examples/train_a2c_continuous.ipynb`](../../examples/train_a2c_continuous.ipynb).

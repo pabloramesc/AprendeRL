@@ -105,4 +105,4 @@ The implementation is in
 and the runnable example is
 [`examples/train_reinforce.ipynb`](../../examples/train_reinforce.ipynb). The
 continuous example is
-[`examples/train_reinforce_pendulum.ipynb`](../../examples/train_reinforce_pendulum.ipynb).
+[`examples/train_reinforce_continuous.ipynb`](../../examples/train_reinforce_continuous.ipynb).

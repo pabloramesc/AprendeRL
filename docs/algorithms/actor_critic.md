@@ -126,4 +126,4 @@ The implementation is in
 and the runnable example is
 [`examples/train_actor_critic.ipynb`](../../examples/train_actor_critic.ipynb).
 The continuous example is
-[`examples/train_actor_critic_pendulum.ipynb`](../../examples/train_actor_critic_pendulum.ipynb).
+[`examples/train_actor_critic_continuous.ipynb`](../../examples/train_actor_critic_continuous.ipynb).

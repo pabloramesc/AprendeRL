@@ -61,11 +61,11 @@ is made by deep-copying the supplied module.
 - [Tabular Q-Learning](examples/train_qlearning.ipynb)
 - [Tabular SARSA](examples/train_sarsa.ipynb)
 - [REINFORCE](examples/train_reinforce.ipynb)
-- [REINFORCE on continuous actions](examples/train_reinforce_pendulum.ipynb)
+- [REINFORCE on continuous actions](examples/train_reinforce_continuous.ipynb)
 - [Actor-Critic](examples/train_actor_critic.ipynb)
-- [Actor-Critic on continuous actions](examples/train_actor_critic_pendulum.ipynb)
+- [Actor-Critic on continuous actions](examples/train_actor_critic_continuous.ipynb)
 - [A2C](examples/train_a2c.ipynb)
-- [A2C on continuous actions](examples/train_a2c_pendulum.ipynb)
+- [A2C on continuous actions](examples/train_a2c_continuous.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
