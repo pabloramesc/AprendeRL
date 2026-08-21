@@ -16,28 +16,20 @@ python -m pip install -e ".[dev]"
 
 ## Minimal usage
 
+Train and evaluate a DQN agent in a few lines:
+
 ```python
 import gymnasium as gym
 from aprenderl import DQN
 from aprenderl.utils import evaluate_policy
 
-train_env = gym.make("CartPole-v1")
-eval_env = gym.make("CartPole-v1")
+env = gym.make("CartPole-v1")
 
-agent = DQN(train_env)
-agent.learn(total_timesteps=20_000)
-result = evaluate_policy(agent, eval_env, episodes=10, seed=1_042)
+agent = DQN(env).learn(20_000)
+result = evaluate_policy(agent, env, episodes=10)
 
 print(result.mean_return)
-train_env.close()
-eval_env.close()
-```
-
-DQN uses a separate target network to construct stable temporal-difference
-targets:
-
-```text
-y = reward + gamma * (1 - terminated) * max_a Q_target(next_state, a)
+env.close()
 ```
 
 Pass any compatible PyTorch module to customize the Q-network. It must map a
@@ -88,8 +80,9 @@ src/aprenderl/
 
 Gymnasium's `terminated` and `truncated` signals are stored separately.
 Value-based algorithms stop bootstrapping only at true terminal states;
-REINFORCE updates only after a complete Gymnasium episode. Evaluation uses a
-separate environment so it cannot disturb training state.
+REINFORCE updates only after a complete Gymnasium episode. Use a separate
+evaluation environment if training will continue afterward, so evaluation does
+not disturb the training state.
 
 See the [algorithm documentation index](docs/algorithms.md) for notation,
 off-policy and on-policy classifications, and a separate mathematical guide for
