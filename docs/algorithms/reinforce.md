@@ -6,8 +6,9 @@
 sampled from the current categorical policy, before that policy changes.
 
 **Use when:** observations are numeric `Box` vectors or tensors and actions are
-discrete, and a compact, educational on-policy baseline is more important than
-sample efficiency.
+discrete, and a compact, educational on-policy algorithm is more important than
+sample efficiency. It can run either as vanilla REINFORCE or with a learned
+state-value baseline.
 
 ## Policy and returns
 
@@ -33,20 +34,49 @@ $$
 G_t\log\pi_\theta(a_t\mid s_t).
 $$
 
-By default, returns are standardized within each update batch. This does not
-change their ordering and usually reduces gradient variance. An optional
-entropy bonus encourages broader action distributions:
+Vanilla REINFORCE is the default. Set `use_baseline=True` to learn a separate
+state-value network by Monte Carlo regression:
+
+$$
+\mathcal{L}_{\mathrm{value}}(\phi)
+= \frac{1}{N}\sum_{t=0}^{N-1}\left(V_\phi(s_t)-G_t\right)^2.
+$$
+
+The policy is then weighted by the detached advantage estimate
+$A_t=G_t-V_\phi(s_t)$ instead of $G_t$. The value target remains the raw return,
+so normalizing the policy weights cannot change the scale learned by the value
+network.
+
+By default, policy weights are standardized within each update batch: returns
+in vanilla mode and advantages in baseline mode. This does not change their
+ordering and usually reduces gradient variance. An optional entropy bonus
+encourages broader action distributions:
 
 $$
 \mathcal{L}(\theta)=\mathcal{L}_{\mathrm{policy}}(\theta)
 -\beta\frac{1}{N}\sum_t\mathcal{H}\left(\pi_\theta(\cdot\mid s_t)\right).
 $$
 
-Adam updates the policy and the gradient norm is clipped to `max_grad_norm`.
-Because vanilla REINFORCE has no learned value function, it waits for a full
-episode and does not bootstrap at time-limit truncations. This makes the method
-simple but generally more variable and less sample-efficient than actor-critic
-methods.
+Adam updates the policy and, when enabled, the value network using independent
+optimizers. Their learning rates are `learning_rate` and `value_learning_rate`;
+both gradient norms are clipped to `max_grad_norm`. Both variants wait for full
+episodes and do not bootstrap at time-limit truncations.
+
+## Switching on the baseline
+
+```python
+config = REINFORCEConfig(
+    use_baseline=True,
+    learning_rate=1e-2,
+    value_learning_rate=1e-2,
+)
+agent = REINFORCE(env, config=config)
+```
+
+With `use_baseline=False` (the default), no value network is created and saved
+checkpoints retain the vanilla behavior. A custom baseline can be supplied as
+`value_network=...`; it must map an observation batch to a tensor of shape
+`(batch_size,)`.
 
 The implementation is in
 [`src/aprenderl/algorithms/reinforce.py`](../../src/aprenderl/algorithms/reinforce.py),

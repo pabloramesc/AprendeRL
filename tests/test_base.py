@@ -6,6 +6,7 @@ from aprenderl.algorithms import (
     DQN,
     REINFORCE,
     SARSA,
+    ActorCritic,
     BaseAlgorithm,
     OffPolicyAlgorithm,
     OnPolicyAlgorithm,
@@ -23,6 +24,7 @@ def test_algorithm_interfaces_are_abstract() -> None:
 
 
 def test_algorithms_use_their_policy_family_base_class() -> None:
+    assert issubclass(ActorCritic, OnPolicyAlgorithm)
     assert issubclass(DQN, OffPolicyAlgorithm)
     assert issubclass(QLearning, OffPolicyAlgorithm)
     assert issubclass(SARSA, OnPolicyAlgorithm)

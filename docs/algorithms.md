@@ -16,6 +16,7 @@ viewers.
 - [On-policy algorithms](#on-policy-algorithms)
   - [Tabular SARSA](#tabular-sarsa)
   - [REINFORCE](#reinforce)
+  - [Actor-Critic](#actor-critic)
 
 ## Notation
 
@@ -41,8 +42,9 @@ $$
 
 Q-Learning and DQN approximate this fixed point with greedy one-step
 temporal-difference targets. SARSA uses a one-step target from its current
-behavior policy. REINFORCE instead optimizes a parameterized policy directly
-from sampled returns.
+behavior policy. REINFORCE optimizes a parameterized policy from sampled
+returns, while Actor-Critic uses a learned value function to construct a
+one-step policy-gradient signal.
 
 ### Termination versus truncation
 
@@ -109,5 +111,12 @@ epsilon-greedy behavior policy. [Read the full guide](algorithms/sarsa.md).
 
 ### REINFORCE
 
-Optimizes a categorical policy directly from the discounted returns of complete
-episodes. [Read the full guide](algorithms/reinforce.md).
+Optimizes a categorical policy from complete-episode returns, optionally using
+a learned state-value baseline to reduce variance.
+[Read the full guide](algorithms/reinforce.md).
+
+### Actor-Critic
+
+Updates a categorical actor and state-value critic from small on-policy
+rollouts, using one-step TD errors as advantage estimates.
+[Read the full guide](algorithms/actor_critic.md).

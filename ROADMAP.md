@@ -24,6 +24,9 @@ QR-DQN, and Rainbow.
 
 REINFORCE, learned baselines, actor–critic, A2C, GAE, and PPO.
 
+Implemented so far: REINFORCE with an optional learned state-value baseline and
+one-step actor–critic.
+
 ### 4. Continuous control
 
 DDPG, TD3, SAC, automatic entropy tuning, and discrete SAC. This phase adds

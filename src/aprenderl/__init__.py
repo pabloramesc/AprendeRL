@@ -4,6 +4,8 @@ from aprenderl.algorithms import (
     DQN,
     REINFORCE,
     SARSA,
+    ActorCritic,
+    ActorCriticConfig,
     BaseAlgorithm,
     DQNConfig,
     OffPolicyAlgorithm,
@@ -15,6 +17,8 @@ from aprenderl.algorithms import (
 )
 
 __all__ = [
+    "ActorCritic",
+    "ActorCriticConfig",
     "BaseAlgorithm",
     "DQN",
     "DQNConfig",

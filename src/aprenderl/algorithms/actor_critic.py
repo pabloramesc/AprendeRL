@@ -1,4 +1,4 @@
-"""Monte Carlo REINFORCE for discrete action spaces."""
+"""One-step actor-critic for discrete action spaces."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from torch import nn
 from typing_extensions import Self
 
 from aprenderl.algorithms.base import OnPolicyAlgorithm
+from aprenderl.buffers import RolloutBuffer
 from aprenderl.callbacks import BaseCallback
 from aprenderl.distributions import CategoricalDistribution
 from aprenderl.logging import TrainingLogger
@@ -23,15 +24,13 @@ from aprenderl.utils import resolve_device
 
 
 @dataclass(frozen=True)
-class REINFORCEConfig:
-    """Hyperparameters for :class:`REINFORCE`."""
+class ActorCriticConfig:
+    """Hyperparameters for :class:`ActorCritic`."""
 
-    learning_rate: float = 1e-2
+    learning_rate: float = 1e-3
+    value_learning_rate: float = 1e-3
     gamma: float = 0.99
-    episodes_per_update: int = 5
-    use_baseline: bool = False
-    value_learning_rate: float = 1e-2
-    normalize_returns: bool = True
+    n_steps: int = 32
     entropy_coefficient: float = 0.0
     max_grad_norm: float = 1.0
     log_interval: int = 10
@@ -40,12 +39,12 @@ class REINFORCEConfig:
     def __post_init__(self) -> None:
         if self.learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
-        if not 0 <= self.gamma <= 1:
-            raise ValueError("gamma must be between 0 and 1")
-        if self.episodes_per_update <= 0:
-            raise ValueError("episodes_per_update must be positive")
         if self.value_learning_rate <= 0:
             raise ValueError("value_learning_rate must be positive")
+        if not 0 <= self.gamma <= 1:
+            raise ValueError("gamma must be between 0 and 1")
+        if self.n_steps <= 0:
+            raise ValueError("n_steps must be positive")
         if self.entropy_coefficient < 0:
             raise ValueError("entropy_coefficient cannot be negative")
         if self.max_grad_norm <= 0:
@@ -54,34 +53,33 @@ class REINFORCEConfig:
             raise ValueError("log_interval must be positive")
 
 
-class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
-    """Episodic policy gradient for discrete actions.
+class ActorCritic(OnPolicyAlgorithm[np.ndarray, int]):
+    """One-step actor-critic for discrete actions.
 
-    The policy is updated only from complete episodes. Each action is weighted
-    by its discounted reward-to-go. When ``use_baseline`` is enabled, a learned
-    state-value baseline is subtracted from that return. Policy weights can be
-    normalized across an update batch to reduce gradient variance. A custom
-    policy network must map a batch of observations to one logit per action.
+    The actor is a categorical policy and the critic estimates state values.
+    Each small rollout is updated using one-step TD targets, and the actor is
+    weighted by the detached TD errors. Custom networks must map observation
+    batches to policy logits and scalar values, respectively.
     """
 
     def __init__(
         self,
         env: gym.Env[Any, Any],
-        network: nn.Module | None = None,
+        policy_network: nn.Module | None = None,
         *,
         value_network: nn.Module | None = None,
-        config: REINFORCEConfig | None = None,
+        config: ActorCriticConfig | None = None,
         device: str | torch.device = "auto",
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        self.config = config or REINFORCEConfig()
+        self.config = config or ActorCriticConfig()
         self.device = resolve_device(device)
 
         if not isinstance(env.observation_space, gym.spaces.Box):
-            raise TypeError("REINFORCE requires a Box observation space")
+            raise TypeError("ActorCritic requires a Box observation space")
         if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise TypeError("REINFORCE requires a Discrete action space")
+            raise TypeError("ActorCritic requires a Discrete action space")
         if env.observation_space.shape is None or not env.observation_space.shape:
             raise ValueError("the observation space must have a non-empty shape")
 
@@ -97,47 +95,37 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
             log_interval=self.config.log_interval,
         )
 
-        self._uses_default_network = network is None
+        self._uses_default_policy_network = policy_network is None
         self.policy_network = (
-            network
-            if network is not None
+            policy_network
+            if policy_network is not None
             else PolicyNetwork(self.observation_dim, self.action_dim)
         ).to(self.device)
-        self._validate_network(self.policy_network)
-        self.optimizer = torch.optim.Adam(
-            self.policy_network.parameters(), lr=self.config.learning_rate
-        )
-        if value_network is not None and not self.config.use_baseline:
-            raise ValueError("value_network requires use_baseline=True")
-        self._uses_default_value_network = self.config.use_baseline and (
-            value_network is None
-        )
+        self._validate_policy_network(self.policy_network)
+
+        self._uses_default_value_network = value_network is None
         self.value_network = (
             value_network
             if value_network is not None
             else ValueNetwork(self.observation_dim)
-            if self.config.use_baseline
-            else None
-        )
-        if self.value_network is not None:
-            self.value_network.to(self.device)
-            self._validate_value_network(self.value_network)
-            self.value_optimizer: torch.optim.Optimizer | None = torch.optim.Adam(
-                self.value_network.parameters(), lr=self.config.value_learning_rate
-            )
-        else:
-            self.value_optimizer = None
+        ).to(self.device)
+        self._validate_value_network(self.value_network)
 
-        self._episode_observations: list[np.ndarray] = []
-        self._episode_actions: list[int] = []
-        self._episode_rewards: list[float] = []
-        self._batch_observations: list[np.ndarray] = []
-        self._batch_actions: list[int] = []
-        self._batch_returns: list[float] = []
-        self._batch_episodes = 0
+        self.policy_optimizer = torch.optim.Adam(
+            self.policy_network.parameters(), lr=self.config.learning_rate
+        )
+        self.value_optimizer = torch.optim.Adam(
+            self.value_network.parameters(), lr=self.config.value_learning_rate
+        )
+        self.rollout_buffer = RolloutBuffer(
+            self.config.n_steps,
+            self.observation_shape,
+            gamma=self.config.gamma,
+            gae_lambda=0.0,
+        )
 
     def predict(self, observation: np.ndarray, *, deterministic: bool = False) -> int:
-        """Choose the modal action or sample from the categorical policy."""
+        """Choose the modal action or sample from the categorical actor."""
 
         array = self._as_observation(observation)
         tensor = torch.as_tensor(array, device=self.device).unsqueeze(0)
@@ -147,31 +135,23 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         return int(action.item()) + self.action_start
 
     def save(self, path: str | Path) -> None:
-        """Save policy, optimizer, configuration, and training counters."""
+        """Save both networks, optimizers, configuration, and training counters."""
 
         checkpoint_path = Path(path)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 2,
+                "version": 1,
                 "config": asdict(self.config),
-                "uses_default_network": self._uses_default_network,
+                "uses_default_policy_network": self._uses_default_policy_network,
                 "uses_default_value_network": self._uses_default_value_network,
                 "observation_shape": self.observation_shape,
                 "action_dim": self.action_dim,
                 "action_start": self.action_start,
                 "policy_network": self.policy_network.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "value_network": (
-                    self.value_network.state_dict()
-                    if self.value_network is not None
-                    else None
-                ),
-                "value_optimizer": (
-                    self.value_optimizer.state_dict()
-                    if self.value_optimizer is not None
-                    else None
-                ),
+                "value_network": self.value_network.state_dict(),
+                "policy_optimizer": self.policy_optimizer.state_dict(),
+                "value_optimizer": self.value_optimizer.state_dict(),
                 "num_timesteps": self.num_timesteps,
                 "num_updates": self.num_updates,
                 "episode_returns": self.episode_returns,
@@ -190,7 +170,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         """Load a checkpoint and validate that it matches ``env``."""
 
         device = resolve_device(kwargs.pop("device", "auto"))
-        network = kwargs.pop("network", None)
+        policy_network = kwargs.pop("policy_network", None)
         value_network = kwargs.pop("value_network", None)
         callback = kwargs.pop("callback", None)
         logger = kwargs.pop("logger", None)
@@ -202,24 +182,19 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
         except TypeError:  # PyTorch before the ``weights_only`` argument.
             checkpoint = torch.load(path, map_location=device)
 
-        if not checkpoint["uses_default_network"] and network is None:
+        if not checkpoint["uses_default_policy_network"] and policy_network is None:
             raise ValueError(
-                "loading a custom-network checkpoint requires network=nn.Module"
+                "loading a custom-policy checkpoint requires policy_network=nn.Module"
             )
-        if (
-            checkpoint.get("value_network") is not None
-            and not checkpoint.get("uses_default_value_network", True)
-            and value_network is None
-        ):
+        if not checkpoint["uses_default_value_network"] and value_network is None:
             raise ValueError(
-                "loading a custom value-network checkpoint requires "
-                "value_network=nn.Module"
+                "loading a custom-value checkpoint requires value_network=nn.Module"
             )
         algorithm = cls(
             env,
-            network=network,
+            policy_network=policy_network,
             value_network=value_network,
-            config=REINFORCEConfig(**checkpoint["config"]),
+            config=ActorCriticConfig(**checkpoint["config"]),
             device=device,
             callback=callback,
             logger=logger,
@@ -238,11 +213,9 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
             raise ValueError("checkpoint spaces do not match environment")
 
         algorithm.policy_network.load_state_dict(checkpoint["policy_network"])
-        algorithm.optimizer.load_state_dict(checkpoint["optimizer"])
-        if algorithm.value_network is not None:
-            algorithm.value_network.load_state_dict(checkpoint["value_network"])
-            assert algorithm.value_optimizer is not None
-            algorithm.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
+        algorithm.value_network.load_state_dict(checkpoint["value_network"])
+        algorithm.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
+        algorithm.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
         algorithm.num_timesteps = int(checkpoint["num_timesteps"])
         algorithm.num_updates = int(checkpoint["num_updates"])
         algorithm.episode_returns = list(checkpoint["episode_returns"])
@@ -255,112 +228,96 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
     def _update_from_transition(
         self, transition: Transition[np.ndarray, int]
     ) -> dict[str, float | int]:
-        self._episode_observations.append(
-            np.asarray(transition.observation, dtype=np.float32)
-        )
-        self._episode_actions.append(transition.action - self.action_start)
-        self._episode_rewards.append(transition.reward)
-        if not transition.done:
-            return {}
-
-        self._finish_episode()
-        if self._batch_episodes >= self.config.episodes_per_update:
-            return self._update_policy()
-        return {}
-
-    def _finish_episode(self) -> None:
-        returns = self._discounted_returns(self._episode_rewards)
-        self._batch_observations.extend(self._episode_observations)
-        self._batch_actions.extend(self._episode_actions)
-        self._batch_returns.extend(returns)
-        self._batch_episodes += 1
-        self._episode_observations.clear()
-        self._episode_actions.clear()
-        self._episode_rewards.clear()
-
-    def _discounted_returns(self, rewards: list[float]) -> list[float]:
-        returns = [0.0] * len(rewards)
-        reward_to_go = 0.0
-        for step in reversed(range(len(rewards))):
-            reward_to_go = rewards[step] + self.config.gamma * reward_to_go
-            returns[step] = reward_to_go
-        return returns
-
-    def _update_policy(self) -> dict[str, float | int]:
-        observations = torch.as_tensor(
-            np.asarray(self._batch_observations), device=self.device
-        )
-        actions = torch.as_tensor(
-            self._batch_actions, dtype=torch.int64, device=self.device
-        )
-        returns = torch.as_tensor(
-            self._batch_returns, dtype=torch.float32, device=self.device
-        )
-        raw_return_mean = returns.mean()
-        value_loss: torch.Tensor | None = None
-        values: torch.Tensor | None = None
-        if self.value_network is not None:
-            values = self.value_network(observations)
-            policy_weights = returns - values.detach()
-            value_loss = nn.functional.mse_loss(values, returns)
-        else:
-            policy_weights = returns
-        raw_weight_mean = policy_weights.mean()
-        if self.config.normalize_returns and policy_weights.numel() > 1:
-            policy_weights = (policy_weights - raw_weight_mean) / (
-                policy_weights.std(unbiased=False) + 1e-8
+        observation = self._as_observation(transition.observation)
+        observation_tensor = torch.as_tensor(
+            observation, device=self.device
+        ).unsqueeze(0)
+        with torch.no_grad():
+            value = self.value_network(observation_tensor).item()
+            next_value = self._next_value(transition).item()
+            distribution = CategoricalDistribution(
+                self.policy_network(observation_tensor)
             )
+            action = torch.tensor(
+                [transition.action - self.action_start],
+                dtype=torch.int64,
+                device=self.device,
+            )
+            log_probability = distribution.log_prob(action).item()
+        self.rollout_buffer.add(
+            observation,
+            transition.action - self.action_start,
+            transition.reward,
+            transition.terminated,
+            transition.truncated,
+            value,
+            next_value,
+            log_probability,
+        )
+        if not self.rollout_buffer.full:
+            return {}
+        self.rollout_buffer.compute_returns_and_advantages()
+        metrics = self._train_step()
+        self.rollout_buffer.reset()
+        return metrics
 
-        distribution = CategoricalDistribution(self.policy_network(observations))
-        log_probabilities = distribution.log_prob(actions)
+    def _train_step(self) -> dict[str, float | int]:
+        batch = self.rollout_buffer.batch(self.device)
+        values = self.value_network(batch.observations)
+
+        distribution = CategoricalDistribution(self.policy_network(batch.observations))
+        log_probabilities = distribution.log_prob(batch.actions.to(torch.int64))
         entropy = distribution.entropy().mean()
-        policy_loss = -(log_probabilities * policy_weights).mean()
+        policy_loss = -(log_probabilities * batch.advantages.detach()).mean()
         policy_objective_loss = (
             policy_loss - self.config.entropy_coefficient * entropy
         )
+        value_loss = nn.functional.mse_loss(values, batch.returns)
 
-        self.optimizer.zero_grad()
+        self.policy_optimizer.zero_grad()
         policy_objective_loss.backward()
-        gradient_norm = nn.utils.clip_grad_norm_(
+        policy_gradient_norm = nn.utils.clip_grad_norm_(
             self.policy_network.parameters(), self.config.max_grad_norm
         )
-        self.optimizer.step()
-        value_gradient_norm: torch.Tensor | None = None
-        if value_loss is not None:
-            assert self.value_network is not None
-            assert self.value_optimizer is not None
-            self.value_optimizer.zero_grad()
-            value_loss.backward()
-            value_gradient_norm = nn.utils.clip_grad_norm_(
-                self.value_network.parameters(), self.config.max_grad_norm
-            )
-            self.value_optimizer.step()
+        self.policy_optimizer.step()
+
+        self.value_optimizer.zero_grad()
+        value_loss.backward()
+        value_gradient_norm = nn.utils.clip_grad_norm_(
+            self.value_network.parameters(), self.config.max_grad_norm
+        )
+        self.value_optimizer.step()
         self.num_updates += 1
 
         metrics: dict[str, float | int] = {
-            "train/loss": float(policy_objective_loss.item()),
+            "train/loss": float(policy_objective_loss.item() + value_loss.item()),
             "train/policy_loss": float(policy_loss.item()),
+            "train/value_loss": float(value_loss.item()),
             "train/entropy": float(entropy.item()),
-            "train/gradient_norm": float(gradient_norm),
-            "train/return_mean": float(raw_return_mean.item()),
+            "train/advantage": float(batch.advantages.mean().item()),
+            "train/value": float(values.detach().mean().item()),
+            "train/td_target": float(batch.returns.mean().item()),
+            "train/policy_gradient_norm": float(policy_gradient_norm),
+            "train/value_gradient_norm": float(value_gradient_norm),
             "train/updates": self.num_updates,
         }
-        if value_loss is not None:
-            assert values is not None
-            assert value_gradient_norm is not None
-            metrics.update(
-                {
-                    "train/value_loss": float(value_loss.item()),
-                    "train/value_mean": float(values.detach().mean().item()),
-                    "train/advantage_mean": float(raw_weight_mean.item()),
-                    "train/value_gradient_norm": float(value_gradient_norm),
-                }
-            )
-        self._batch_observations.clear()
-        self._batch_actions.clear()
-        self._batch_returns.clear()
-        self._batch_episodes = 0
         return metrics
+
+    @torch.no_grad()
+    def _td_target(self, transition: Transition[np.ndarray, int]) -> torch.Tensor:
+        reward = torch.tensor(
+            [transition.reward], dtype=torch.float32, device=self.device
+        )
+        return reward + self.config.gamma * self._next_value(transition)
+
+    @torch.no_grad()
+    def _next_value(self, transition: Transition[np.ndarray, int]) -> torch.Tensor:
+        if transition.terminated:
+            return torch.zeros(1, dtype=torch.float32, device=self.device)
+        next_observation = torch.as_tensor(
+            self._as_observation(transition.next_observation), device=self.device
+        ).unsqueeze(0)
+        return self.value_network(next_observation)
 
     def _progress_metrics(
         self,
@@ -371,7 +328,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
             metrics["entropy"] = f"{float(training_metrics['train/entropy']):.3f}"
         return metrics
 
-    def _validate_network(self, network: nn.Module) -> None:
+    def _validate_policy_network(self, network: nn.Module) -> None:
         try:
             with torch.no_grad():
                 output = network(
@@ -379,13 +336,14 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, int]):
                 )
         except Exception as error:
             raise ValueError(
-                "network could not process one environment observation"
+                "policy_network could not process one environment observation"
             ) from error
         expected_shape = (1, self.action_dim)
         if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
             actual_shape = getattr(output, "shape", None)
             raise ValueError(
-                f"network must return shape {expected_shape}, got {actual_shape}"
+                f"policy_network must return shape {expected_shape}, "
+                f"got {actual_shape}"
             )
 
     def _validate_value_network(self, network: nn.Module) -> None:

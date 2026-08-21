@@ -11,23 +11,16 @@ requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Pablo Ramirez" }]
 dependencies = [
-    "gymnasium>=0.29,<2",
-    "numpy>=1.24",
-    "torch>=2.1",
-    "tqdm>=4.66",
-    "typing-extensions>=4.4",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8",
-    "ruff>=0.6",
-]
-notebook = [
     "gymnasium[classic-control]>=0.29,<2",
     "ipywidgets>=8",
     "jupyterlab>=4",
     "matplotlib>=3.7",
+    "numpy>=1.24",
+    "pytest>=8",
+    "ruff>=0.6",
+    "torch>=2.1",
+    "tqdm>=4.66",
+    "typing-extensions>=4.4",
 ]
 
 [tool.hatch.build.targets.wheel]
