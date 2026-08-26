@@ -5,17 +5,11 @@ from scratch with PyTorch and Gymnasium. Its API is intentionally familiar to
 Stable-Baselines3 users, while its training loops and update equations remain
 small enough to read in one sitting.
 
-The implemented algorithms are off-policy tabular Q-Learning and vanilla DQN,
-plus the on-policy tabular SARSA, REINFORCE, one-step Actor-Critic, and A2C
-methods. REINFORCE supports both its vanilla form and an optional learned
-state-value baseline; A2C adds multi-step generalized advantage estimation.
-REINFORCE, Actor-Critic, and A2C support discrete and continuous `Box` actions.
-Finite bounds use a squashed diagonal Gaussian; fully unbounded actions use a
-plain diagonal Gaussian.
-
-## Install
+## Quick install
 
 ```bash
+git clone https://github.com/pabloramesc/AprendeRL.git
+cd ./AprendeRL
 python -m pip install -e .
 ```
 
@@ -36,7 +30,6 @@ result = evaluate_policy(agent, env, episodes=10)
 print(result.mean_return)
 env.close()
 ```
-
 Pass any compatible PyTorch module to customize the Q-network. It must map a
 batch of observations to one value per discrete action:
 
@@ -49,17 +42,18 @@ network = nn.Sequential(
     nn.ReLU(),
     nn.Linear(64, 2),
 )
-agent = DQN(train_env, network)
+agent = DQN(env, network)
 ```
-
 When `network` is omitted, AprendeRL creates its default MLP. A target network
 is made by deep-copying the supplied module.
 
 ## Example notebooks
 
-- [DQN](examples/train_dqn.ipynb)
+Complete training examples:
+
 - [Tabular Q-Learning](examples/train_qlearning.ipynb)
 - [Tabular SARSA](examples/train_sarsa.ipynb)
+- [DQN](examples/train_dqn.ipynb)
 - [REINFORCE](examples/train_reinforce.ipynb)
 - [REINFORCE on continuous actions](examples/train_reinforce_continuous.ipynb)
 - [Actor-Critic](examples/train_actor_critic.ipynb)
@@ -70,6 +64,9 @@ is made by deep-copying the supplied module.
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
 algorithm's observation and action spaces.
+
+## Study notebooks
+TODO
 
 ## Repository layout
 

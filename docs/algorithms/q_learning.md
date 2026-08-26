@@ -68,3 +68,9 @@ first update; a positive value can produce optimistic initial exploration.
 
 The implementation is in
 [`src/aprenderl/algorithms/q_learning.py`](../../src/aprenderl/algorithms/q_learning.py).
+
+An example notebook for training and evaluation is in
+[`examples/train_qlearning.ipynb`](../../examples/train_qlearning.ipynb)
+
+A nimimal standalone notebook for study is in
+[`study/q_learning.ipynb`](../../study/q_learning.ipynb).
