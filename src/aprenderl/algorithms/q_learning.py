@@ -88,7 +88,7 @@ class QLearning(OffPolicyAlgorithm[int, int]):
             dtype=np.float32,
         )
         self.exploration = EpsilonGreedyPolicy(
-            LinearSchedule(
+            schedule=LinearSchedule(
                 self.config.exploration_initial_epsilon,
                 self.config.exploration_final_epsilon,
                 self.config.exploration_steps,

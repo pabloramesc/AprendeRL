@@ -35,6 +35,7 @@ result = evaluate_policy(agent, env, episodes=10)
 print(result.mean_return)
 env.close()
 ```
+
 Pass any compatible PyTorch module to customize the Q-network. It must map a
 batch of observations to one value per discrete action:
 
@@ -49,6 +50,7 @@ network = nn.Sequential(
 )
 agent = DQN(env, network)
 ```
+
 When `network` is omitted, AprendeRL creates its default MLP. A target network
 is made by deep-copying the supplied module.
 
@@ -76,6 +78,7 @@ algorithm's observation and action spaces.
 - [Tabular SARSA](study/sarsa.ipynb)
 - [DQN](study/dqn.ipynb)
 - [REINFORCE](study/reinforce.ipynb)
+- [Actor-Critic](study/actor_critic.ipynb)
 
 ## Repository layout
 
