@@ -78,7 +78,9 @@ algorithm's observation and action spaces.
 - [Tabular SARSA](study/sarsa.ipynb)
 - [DQN](study/dqn.ipynb)
 - [REINFORCE](study/reinforce.ipynb)
+- [REINFORCE on continuous actions](study/reinforce_continuous.ipynb)
 - [Actor-Critic](study/actor_critic.ipynb)
+- [Actor-Critic on continuous actions](study/actor_critic_continuous.ipynb)
 
 ## Repository layout
 

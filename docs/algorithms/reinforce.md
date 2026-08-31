@@ -108,4 +108,5 @@ continuous example is
 [`examples/train_reinforce_continuous.ipynb`](../../examples/train_reinforce_continuous.ipynb).
 
 A nimimal standalone notebook for study is in
-[`study/reinforce.ipynb`](../../study/reinforce.ipynb).
+[`study/reinforce.ipynb`](../../study/reinforce.ipynb) and
+[`study/reinforce_continuous.ipynb`](../../study/reinforce_continuous.ipynb).

@@ -129,4 +129,5 @@ The continuous example is
 [`examples/train_actor_critic_continuous.ipynb`](../../examples/train_actor_critic_continuous.ipynb).
 A minimal standalone notebook that derives the discrete algorithm from its TD
 target and policy loss is in
-[`study/actor_critic.ipynb`](../../study/actor_critic.ipynb).
+[`study/actor_critic.ipynb`](../../study/actor_critic.ipynb) and
+[`study/actor_critic_continuous.ipynb`](../../study/actor_critic_continuous.ipynb).
