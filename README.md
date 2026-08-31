@@ -71,7 +71,11 @@ the beginning, so you can switch to another environment compatible with the
 algorithm's observation and action spaces.
 
 ## Study notebooks
-TODO
+
+- [Tabular Q-Learning](study/q_learning.ipynb)
+- [Tabular SARSA](study/sarsa.ipynb)
+- [DQN](study/dqn.ipynb)
+- [REINFORCE](study/reinforce.ipynb)
 
 ## Repository layout
 
