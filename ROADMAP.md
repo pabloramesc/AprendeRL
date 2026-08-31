@@ -5,31 +5,31 @@ Completed algorithms are checked.
 
 ## Classical reinforcement learning
 
-- [ ] Multi-armed bandits
-- [ ] Value iteration
-- [ ] Policy iteration
-- [ ] Monte Carlo prediction
-- [ ] Monte Carlo control
+- [x] Multi-armed bandits
+- [x] Value iteration
+- [x] Policy iteration
+- [x] Monte Carlo prediction
+- [x] Monte Carlo control
 - [x] SARSA - State-Action-Reward-State-Action
-- [ ] Expected SARSA
-- [ ] n-step SARSA
-- [ ] SARSA(λ) and eligibility traces
+- [x] Expected SARSA
+- [x] n-step SARSA
+- [x] SARSA(λ) and eligibility traces
 - [x] Q-learning
-- [ ] Dyna-Q
+- [x] Dyna-Q
 - [ ] ARS - Augmented Random Search
 
 ## Deep value-based methods
 
 - [x] DQN - Deep Q-Network
 - [x] Double DQN
-- [ ] Dueling DQN
-- [ ] PER - Prioritized Experience Replay
-- [ ] n-step DQN
-- [ ] NoisyNet DQN
-- [ ] C51 - Categorical DQN with 51 atoms
-- [ ] Rainbow DQN - Double, Dueling, PER, n-step, NoisyNet, and C51
-- [ ] QR-DQN - Quantile Regression DQN
-- [ ] IQN - Implicit Quantile Network
+- [x] Dueling DQN
+- [x] PER - Prioritized Experience Replay
+- [x] n-step DQN
+- [x] NoisyNet DQN
+- [x] C51 - Categorical DQN with 51 atoms
+- [x] Rainbow DQN - Double, Dueling, PER, n-step, NoisyNet, and C51
+- [x] QR-DQN - Quantile Regression DQN
+- [x] IQN - Implicit Quantile Network
 
 ## Policy-gradient methods
 

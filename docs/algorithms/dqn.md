@@ -64,16 +64,17 @@ network makes the regression target change more slowly. Training begins after
 `learning_starts`, runs every `train_freq` environment steps, and performs
 `gradient_steps` optimizer updates each time.
 
-## Exploration and variant
+## Exploration and variants
 
 Training uses linearly annealed epsilon-greedy exploration, while deterministic
 prediction always chooses the action with the largest Q-value. See the
 [shared notation](../algorithms.md#epsilon-greedy-exploration) for its exact
 definition.
 
-This is **vanilla DQN**: the target network both selects and evaluates
-$\arg\max_{a'}Q_{\theta^-}(s',a')$. Double DQN would select with the online
-network and evaluate with the target network; that variant is not implemented.
+This class is **vanilla DQN**: the target network both selects and evaluates
+$\arg\max_{a'}Q_{\theta^-}(s',a')$. AprendeRL also provides standalone Double,
+Dueling, Prioritized, n-step, NoisyNet, C51, QR-DQN, IQN, and Rainbow classes.
+See the [DQN variant guide](dqn_variants.md) for their targets and losses.
 
 The implementation is in
 [`src/aprenderl/algorithms/dqn.py`](../../src/aprenderl/algorithms/dqn.py).

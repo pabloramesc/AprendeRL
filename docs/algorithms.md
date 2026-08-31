@@ -11,11 +11,16 @@ viewers.
   - [Termination versus truncation](#termination-versus-truncation)
   - [Epsilon-greedy exploration](#epsilon-greedy-exploration)
   - [Policy-gradient action distributions](#policy-gradient-action-distributions)
+- [Value estimation and planning](#value-estimation-and-planning)
 - [Off-policy algorithms](#off-policy-algorithms)
   - [Tabular Q-Learning](#tabular-q-learning)
+  - [Dyna-Q](#dyna-q)
   - [Deep Q-Network (DQN)](#deep-q-network-dqn)
+  - [DQN variants](#dqn-variants)
 - [On-policy algorithms](#on-policy-algorithms)
+  - [Monte Carlo Control](#monte-carlo-control)
   - [Tabular SARSA](#tabular-sarsa)
+  - [Expected and multi-step SARSA](#expected-and-multi-step-sarsa)
   - [REINFORCE](#reinforce)
   - [Actor-Critic](#actor-critic)
   - [A2C](#a2c)
@@ -42,12 +47,13 @@ Q^*(s,a) = \mathbb{E}\left[r_{t+1}
 + \gamma \max_{a'} Q^*(s_{t+1},a') \mid s_t=s,a_t=a\right].
 $$
 
-Q-Learning and DQN approximate this fixed point with greedy one-step
-temporal-difference targets. SARSA uses a one-step target from its current
-behavior policy. REINFORCE optimizes a parameterized policy from sampled
-returns, while Actor-Critic uses a learned value function to construct a
-one-step policy-gradient signal. A2C extends that update to multi-step
-generalized advantage estimates.
+Value and policy iteration apply Bellman operators to an exact model. Monte
+Carlo methods average complete sampled returns. Q-Learning and the DQN family
+use greedy temporal-difference targets, while Dyna-Q adds learned-model updates.
+SARSA variants learn from the current behavior policy using sampled, expected,
+multi-step, or eligibility-trace targets. REINFORCE optimizes a parameterized
+policy from sampled returns, while Actor-Critic and A2C combine policy and value
+learning.
 
 ### Termination versus truncation
 
@@ -63,7 +69,7 @@ still bootstraps because the underlying MDP did not terminate.
 
 ### Epsilon-greedy exploration
 
-During Q-Learning, SARSA, and DQN training, actions use
+During the tabular TD methods and non-NoisyNet DQN variants, actions use
 
 $$
 a_t =
@@ -96,10 +102,18 @@ plain diagonal Gaussian. Partially or one-sided bounded spaces are rejected
 because they require a different transform. Deterministic prediction uses the
 categorical mode or Gaussian mean, including the finite-bound transformation.
 
-Q-Learning, SARSA, and DQN remain discrete-action algorithms.
+All current value-based control algorithms remain discrete-action algorithms.
 The Gaussian path keeps the on-policy implementations compact and educational;
 dedicated continuous-control methods such as SAC and TD3 will generally be more
 sample efficient once they are implemented.
+
+## Value estimation and planning
+
+Multi-armed bandits estimate one value per arm without a state transition
+model. Value Iteration and Policy Iteration plan from an exact finite model.
+Monte Carlo Prediction estimates the state value of a fixed policy from
+complete sampled returns. These methods do not fit the behavior-versus-target
+policy distinction used below. [Read the classical value-method guide](algorithms/classical_value_methods.md).
 
 ## Off-policy algorithms
 
@@ -112,10 +126,22 @@ or learn a greedy policy while collecting exploratory actions.
 Learns action values in a table using one-step temporal-difference updates and
 epsilon-greedy exploration. [Read the full guide](algorithms/q_learning.md).
 
+### Dyna-Q
+
+Combines every real Q-Learning update with sampled planning updates from a
+learned tabular model. [Read the classical value-method guide](algorithms/classical_value_methods.md#dyna-q).
+
 ### Deep Q-Network (DQN)
 
 Approximates action values with a neural network trained from replayed
 transitions. [Read the full guide](algorithms/dqn.md).
+
+### DQN variants
+
+Double DQN, Dueling DQN, Prioritized DQN, n-step DQN, NoisyNet DQN, C51,
+Rainbow DQN, QR-DQN, and IQN isolate improvements to targets, architectures,
+replay, exploration, and return-distribution modeling.
+[Read the DQN variant guide](algorithms/dqn_variants.md).
 
 ## On-policy algorithms
 
@@ -123,10 +149,21 @@ An **on-policy** algorithm updates the same policy that generated its current
 training trajectories. Once the policy changes, old trajectories are generally
 not reused for later updates.
 
+### Monte Carlo Control
+
+Learns action values by averaging returns from complete epsilon-greedy episodes.
+[Read the classical value-method guide](algorithms/classical_value_methods.md#monte-carlo-control).
+
 ### Tabular SARSA
 
 Learns action values in a table using the next action selected by the current
 epsilon-greedy behavior policy. [Read the full guide](algorithms/sarsa.md).
+
+### Expected and multi-step SARSA
+
+Expected SARSA integrates over epsilon-greedy next actions, n-step SARSA uses a
+longer sampled return, and SARSA(lambda) propagates each TD error through
+eligibility traces. [Read the classical value-method guide](algorithms/classical_value_methods.md#expected-sarsa).
 
 ### REINFORCE
 

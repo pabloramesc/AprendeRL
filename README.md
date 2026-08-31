@@ -54,13 +54,45 @@ agent = DQN(env, network)
 When `network` is omitted, AprendeRL creates its default MLP. A target network
 is made by deep-copying the supplied module.
 
+## Value-based coverage
+
+AprendeRL includes the complete value-based roadmap:
+
+- bandit action-value estimation, Value Iteration, and Policy Iteration;
+- Monte Carlo Prediction and Control;
+- Q-Learning, SARSA, Expected SARSA, n-step SARSA, SARSA(lambda), and Dyna-Q;
+- DQN, Double DQN, Dueling DQN, prioritized replay, n-step DQN, and NoisyNet;
+- C51, Rainbow DQN, QR-DQN, and IQN.
+
+Every trainable class follows `learn`, `predict`, `save`, and `load`. Planning
+classes interpret `learn(total_timesteps)` as a maximum number of planning
+sweeps or policy improvements.
+
 ## Example notebooks
 
 Complete training examples:
 
+- [Multi-Armed Bandits](examples/train_multi_armed_bandit.ipynb)
+- [Value Iteration](examples/train_value_iteration.ipynb)
+- [Policy Iteration](examples/train_policy_iteration.ipynb)
+- [Monte Carlo Prediction](examples/train_monte_carlo_prediction.ipynb)
+- [Monte Carlo Control](examples/train_monte_carlo_control.ipynb)
 - [Tabular Q-Learning](examples/train_qlearning.ipynb)
 - [Tabular SARSA](examples/train_sarsa.ipynb)
+- [Expected SARSA](examples/train_expected_sarsa.ipynb)
+- [n-step SARSA](examples/train_n_step_sarsa.ipynb)
+- [SARSA(lambda)](examples/train_sarsa_lambda.ipynb)
+- [Dyna-Q](examples/train_dyna_q.ipynb)
 - [DQN](examples/train_dqn.ipynb)
+- [Double DQN](examples/train_double_dqn.ipynb)
+- [Dueling DQN](examples/train_dueling_dqn.ipynb)
+- [Prioritized DQN](examples/train_prioritized_dqn.ipynb)
+- [n-step DQN](examples/train_n_step_dqn.ipynb)
+- [NoisyNet DQN](examples/train_noisy_dqn.ipynb)
+- [C51](examples/train_c51.ipynb)
+- [Rainbow DQN](examples/train_rainbow_dqn.ipynb)
+- [QR-DQN](examples/train_qr_dqn.ipynb)
+- [IQN](examples/train_iqn.ipynb)
 - [REINFORCE](examples/train_reinforce.ipynb)
 - [REINFORCE on continuous actions](examples/train_reinforce_continuous.ipynb)
 - [Actor-Critic](examples/train_actor_critic.ipynb)
@@ -74,9 +106,27 @@ algorithm's observation and action spaces.
 
 ## Study notebooks
 
+- [Multi-Armed Bandits](study/multi_armed_bandit.ipynb)
+- [Value Iteration](study/value_iteration.ipynb)
+- [Policy Iteration](study/policy_iteration.ipynb)
+- [Monte Carlo Prediction](study/monte_carlo_prediction.ipynb)
+- [Monte Carlo Control](study/monte_carlo_control.ipynb)
 - [Tabular Q-Learning](study/q_learning.ipynb)
 - [Tabular SARSA](study/sarsa.ipynb)
+- [Expected SARSA](study/expected_sarsa.ipynb)
+- [n-step SARSA](study/n_step_sarsa.ipynb)
+- [SARSA(lambda)](study/sarsa_lambda.ipynb)
+- [Dyna-Q](study/dyna_q.ipynb)
 - [DQN](study/dqn.ipynb)
+- [Double DQN](study/double_dqn.ipynb)
+- [Dueling DQN](study/dueling_dqn.ipynb)
+- [Prioritized DQN](study/prioritized_dqn.ipynb)
+- [n-step DQN](study/n_step_dqn.ipynb)
+- [NoisyNet DQN](study/noisy_dqn.ipynb)
+- [C51](study/c51.ipynb)
+- [Rainbow DQN](study/rainbow_dqn.ipynb)
+- [QR-DQN](study/qr_dqn.ipynb)
+- [IQN](study/iqn.ipynb)
 - [REINFORCE](study/reinforce.ipynb)
 - [REINFORCE on continuous actions](study/reinforce_continuous.ipynb)
 - [Actor-Critic](study/actor_critic.ipynb)

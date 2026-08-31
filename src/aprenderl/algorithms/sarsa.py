@@ -62,6 +62,8 @@ class SARSA(OnPolicyAlgorithm[int, int]):
     truncations bootstrap from their final observation; true terminals do not.
     """
 
+    config_type = SARSAConfig
+
     def __init__(
         self,
         env: gym.Env[Any, Any],
@@ -165,7 +167,7 @@ class SARSA(OnPolicyAlgorithm[int, int]):
 
         algorithm = cls(
             env,
-            config=SARSAConfig(**metadata["config"]),
+            config=cls.config_type(**metadata["config"]),
             callback=callback,
             logger=logger,
         )

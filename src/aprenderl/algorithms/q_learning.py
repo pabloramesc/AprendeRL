@@ -64,6 +64,8 @@ class QLearning(OffPolicyAlgorithm[int, int]):
     transitions do not.
     """
 
+    config_type = QLearningConfig
+
     def __init__(
         self,
         env: gym.Env[Any, Any],
@@ -168,7 +170,7 @@ class QLearning(OffPolicyAlgorithm[int, int]):
 
         algorithm = cls(
             env,
-            config=QLearningConfig(**metadata["config"]),
+            config=cls.config_type(**metadata["config"]),
             callback=callback,
             logger=logger,
         )

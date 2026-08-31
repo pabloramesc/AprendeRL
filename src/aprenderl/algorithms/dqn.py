@@ -79,6 +79,8 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
     observations to one value per action. When omitted, a small MLP is created.
     """
 
+    config_type = DQNConfig
+
     def __init__(
         self,
         env: gym.Env[Any, Any],
@@ -213,7 +215,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         algorithm = cls(
             env,
             network=network,
-            config=DQNConfig(**config_data),
+            config=cls.config_type(**config_data),
             device=device,
             callback=callback,
             logger=logger,
