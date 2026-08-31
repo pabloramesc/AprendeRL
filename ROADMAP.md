@@ -1,75 +1,98 @@
 # AprendeRL roadmap
 
-The 0.1 release establishes the small, stable core used by later algorithms:
-Gymnasium interaction, typed configuration, PyTorch networks, replay storage,
-callbacks, evaluation, logging, checkpointing, and vanilla DQN. Later
-components will be added when an implemented algorithm needs them, keeping the
-mathematics visible and avoiding framework machinery for its own sake.
+Implementation roadmap for reinforcement learning algorithms.
+Completed algorithms are checked.
 
-## Planned phases
+## Classical reinforcement learning
 
-### 1. Classical RL
+- [ ] Multi-armed bandits
+- [ ] Value iteration
+- [ ] Policy iteration
+- [ ] Monte Carlo prediction
+- [ ] Monte Carlo control
+- [x] SARSA — State-Action-Reward-State-Action
+- [ ] n-step SARSA
+- [x] Q-learning
+- [ ] Dyna-Q
 
-Bandits, value iteration, policy iteration, Monte Carlo control, SARSA, and
-Q-learning.
+## Deep value-based methods
 
-Implemented so far: SARSA and Q-learning.
+- [x] DQN — Deep Q-Network
+- [ ] Double DQN
+- [ ] Dueling DQN
+- [ ] Prioritized experience replay
+- [ ] n-step DQN
+- [ ] NoisyNet DQN
+- [ ] C51 — Categorical DQN with 51 atoms
+- [ ] QR-DQN — Quantile Regression DQN
+- [ ] Rainbow
 
-### 2. DQN family
+## Policy-gradient methods
 
-Double DQN, Dueling DQN, prioritized replay, n-step returns, NoisyNet, C51,
-QR-DQN, and Rainbow.
+- [x] REINFORCE — REward Increment = Nonnegative Factor × Offset Reinforcement
+  × Characteristic Eligibility
+- [x] REINFORCE with a learned baseline
+- [x] Actor-Critic
+- [x] A2C — Advantage Actor-Critic
+- [x] GAE — Generalized Advantage Estimation
+- [ ] TRPO — Trust Region Policy Optimization
+- [ ] PPO — Proximal Policy Optimization
 
-### 3. Policy gradients
+## Continuous-control methods
 
-REINFORCE, learned baselines, actor–critic, A2C, GAE, and PPO.
+- [ ] DPG — Deterministic Policy Gradient
+- [ ] DDPG — Deep Deterministic Policy Gradient
+- [ ] TD3 — Twin Delayed DDPG
+- [ ] SAC — Soft Actor-Critic
+- [ ] SAC with automatic entropy tuning
+- [ ] Discrete SAC
 
-Implemented so far: REINFORCE with an optional learned state-value baseline,
-one-step actor–critic, and single-environment A2C with GAE.
+## Goal-conditioned and exploration methods
 
-### 4. Continuous control
+- [ ] Goal-conditioned DQN
+- [ ] Goal-conditioned DDPG
+- [ ] HER — Hindsight Experience Replay
+- [ ] Goal-conditioned SAC
+- [ ] ICM — Intrinsic Curiosity Module
+- [ ] RND — Random Network Distillation
 
-DDPG, TD3, SAC, automatic entropy tuning, and discrete SAC. The on-policy
-REINFORCE, Actor-Critic, and A2C implementations already support continuous
-action spaces with plain or squashed diagonal-Gaussian policies; this phase adds
-dedicated off-policy continuous-control methods and deterministic actors.
+## Recurrent methods
 
-### 5. Goal-conditioned and exploration methods
+- [ ] Recurrent DQN
+- [ ] Recurrent A2C
+- [ ] Recurrent PPO
 
-HER, goal-conditioned DQN/SAC, intrinsic curiosity modules (ICM), and random
-network distillation (RND).
+## Multi-agent methods
 
-### 6. Partial observability
+- [ ] Independent DQN
+- [ ] Independent PPO
+- [ ] Parameter-sharing PPO
+- [ ] MADDPG — Multi-Agent DDPG
+- [ ] VDN — Value Decomposition Networks
+- [ ] QMIX — Q-value mixing network
+- [ ] MAPPO — Multi-Agent PPO
+- [ ] MASAC — Multi-Agent SAC
+- [ ] MATD3 — Multi-Agent TD3
 
-Recurrent DQN, A2C, and PPO using GRU/LSTM policies and sequence-aware buffers.
-
-### 7. Multi-agent reinforcement learning
-
-Independent DQN/PPO, parameter-sharing PPO, MAPPO, MADDPG, VDN, QMIX, MASAC,
-and MATD3. Interfaces will be PettingZoo-compatible and support centralized
-training with decentralized execution (CTDE), shared policies, and centralized
+Multi-agent interfaces will be PettingZoo-compatible and support centralized
+training with decentralized execution, shared policies, and centralized
 critics.
 
-### 8. Imitation and offline RL
+## Imitation and offline reinforcement learning
 
-Behavioral cloning, DAgger, TD3+BC, CQL, IQL, and advantage-weighted regression.
+- [ ] Behavioral cloning
+- [ ] DAgger — Dataset Aggregation
+- [ ] Advantage-weighted regression
+- [ ] TD3+BC — TD3 with Behavioral Cloning
+- [ ] CQL — Conservative Q-Learning
+- [ ] IQL — Implicit Q-Learning
 
-### 9. Advanced methods
+## Model-based and advanced methods
 
-Dyna-Q, PETS, MBPO, Dreamer, Decision Transformer, hierarchical RL, constrained
-RL, and multi-objective RL.
-
-## Recommended release sequence
-
-| Release | Scope |
-| --- | --- |
-| `0.1` | Core API and vanilla DQN |
-| `0.2` | Double/Dueling DQN, prioritized replay, and n-step returns |
-| `0.3` | REINFORCE, A2C, and GAE |
-| `0.4` | PPO and vectorized environments |
-| `0.5` | DDPG, TD3, and SAC |
-| `0.6` | C51, NoisyNet, and Rainbow |
-| `0.7` | Goal-conditioned RL and HER |
-| `0.8` | Recurrent policies |
-| `0.9` | IPPO, MAPPO, VDN, and QMIX |
-| `1.0` | Stable API, documentation, and reproducible benchmarks |
+- [ ] PETS — Probabilistic Ensembles with Trajectory Sampling
+- [ ] MBPO — Model-Based Policy Optimization
+- [ ] Dreamer
+- [ ] Decision Transformer
+- [ ] Hierarchical reinforcement learning
+- [ ] Constrained reinforcement learning
+- [ ] Multi-objective reinforcement learning

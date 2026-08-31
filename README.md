@@ -10,8 +10,13 @@ small enough to read in one sitting.
 ```bash
 git clone https://github.com/pabloramesc/AprendeRL.git
 cd ./AprendeRL
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install -e .
 ```
+
+Using a virtual environment is recommended to keep AprendeRL and its
+dependencies isolated from your system Python installation.
 
 ## Minimal usage
 
