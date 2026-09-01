@@ -12,7 +12,7 @@ AprendeRL is an educational reinforcement-learning library with a simple, SB3-in
 
 - Keep implementations simple, explicit, and educational.
 - Follow Gymnasium and Stable-Baselines3 conventions where practical.
-- New algorithms should include documentation, tests, and a notebook example.
+- New algorithms should include documentation, tests, and example and study notebooks.
 
 ## API design
 
