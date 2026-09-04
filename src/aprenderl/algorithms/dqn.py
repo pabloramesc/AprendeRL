@@ -1,4 +1,4 @@
-"""A readable vanilla Deep Q-Network implementation."""
+"""A readable Deep Q-Network implementation with optional Double DQN targets."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from aprenderl.utils import resolve_device
 
 @dataclass(frozen=True)
 class DQNConfig:
-    """Typed hyperparameters for :class:`DQN`."""
+    """Hyperparameters shared by the DQN family."""
 
     learning_rate: float = 1e-3
     gamma: float = 0.99
@@ -39,6 +39,7 @@ class DQNConfig:
     exploration_initial_epsilon: float = 1.0
     exploration_final_epsilon: float = 0.05
     exploration_steps: int = 10_000
+    double_dqn: bool = False
     max_grad_norm: float = 10.0
     log_interval: int = 10
     seed: int | None = None
@@ -73,10 +74,11 @@ class DQNConfig:
 
 
 class DQN(OffPolicyAlgorithm[np.ndarray, int]):
-    """Vanilla DQN for one Gymnasium environment with discrete actions.
+    """DQN for one Gymnasium environment with discrete actions.
 
-    A custom Q-network can be supplied as any ``nn.Module`` mapping a batch of
-    observations to one value per action. When omitted, a small MLP is created.
+    Set ``double_dqn=True`` in :class:`DQNConfig` to select target actions with
+    the online network and evaluate them with the target network. This keeps
+    the original DQN and Double DQN formulations in one educational class.
     """
 
     config_type = DQNConfig
@@ -93,23 +95,11 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
     ) -> None:
         self.config = config or DQNConfig()
         self.device = resolve_device(device)
-
-        if not isinstance(env.observation_space, gym.spaces.Box):
-            raise TypeError("DQN requires a Box observation space")
-        if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise TypeError("DQN requires a Discrete action space")
-        if env.observation_space.shape is None or not env.observation_space.shape:
-            raise ValueError("the observation space must have a non-empty shape")
-
-        self.observation_shape = tuple(env.observation_space.shape)
-        self.observation_dim = int(np.prod(self.observation_shape))
-        self.action_dim = int(env.action_space.n)
-        self.action_start = int(env.action_space.start)
-        self.replay_buffer = ReplayBuffer(
-            self.config.buffer_size,
-            self.observation_shape,
-            seed=self.config.seed,
+        self.observation_shape, self.action_dim, self.action_start = (
+            _environment_dimensions(env, type(self).__name__)
         )
+        self.observation_dim = int(np.prod(self.observation_shape))
+        self.replay_buffer = self._make_replay_buffer()
         super().__init__(
             env,
             seed=self.config.seed,
@@ -144,7 +134,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         array = self._as_observation(observation)
         tensor = torch.as_tensor(array, device=self.device).unsqueeze(0)
         with torch.no_grad():
-            q_values = self.q_network(tensor).squeeze(0)
+            q_values = self._q_values(self.q_network, tensor).squeeze(0)
         action = self.exploration.select(
             q_values,
             step=self.num_timesteps,
@@ -159,7 +149,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "version": 4,
+                "version": 5,
                 "config": asdict(self.config),
                 "uses_default_network": self._uses_default_network,
                 "observation_shape": self.observation_shape,
@@ -173,6 +163,7 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
                 "episode_returns": self.episode_returns,
                 "episode_lengths": self.episode_lengths,
                 "exploration_rng_state": self.exploration.rng_state,
+                "algorithm_state": self._checkpoint_state(),
             },
             checkpoint_path,
         )
@@ -202,8 +193,6 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         if "train_frequency" in config_data:
             config_data["train_freq"] = config_data.pop("train_frequency")
         if "exploration_fraction" in config_data:
-            # Version 2 resolved the fraction on the first learn() call and
-            # persisted the resulting duration separately.
             config_data.pop("exploration_fraction")
             config_data["exploration_steps"] = (
                 checkpoint.get("exploration_duration") or 1
@@ -236,7 +225,15 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
         algorithm.episode_lengths = list(checkpoint["episode_lengths"])
         if "exploration_rng_state" in checkpoint:
             algorithm.exploration.rng_state = checkpoint["exploration_rng_state"]
+        algorithm._restore_checkpoint_state(checkpoint.get("algorithm_state", {}))
         return algorithm
+
+    def _make_replay_buffer(self) -> ReplayBuffer:
+        return ReplayBuffer(
+            self.config.buffer_size,
+            self.observation_shape,
+            seed=self.config.seed,
+        )
 
     def _make_exploration(self) -> EpsilonGreedyPolicy:
         return EpsilonGreedyPolicy(
@@ -262,24 +259,29 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             transition.terminated,
             transition.truncated,
         )
+        return self._maybe_train()
+
+    def _maybe_train(self) -> dict[str, float | int]:
         next_timestep = self.num_timesteps + 1
-        ready_to_train = (
+        ready = (
             next_timestep >= self.config.learning_starts
             and next_timestep % self.config.train_freq == 0
             and len(self.replay_buffer) >= self.config.batch_size
         )
-        latest_metrics: dict[str, float | int] = {}
-        if ready_to_train:
+        latest: dict[str, float | int] = {}
+        if ready:
             for _ in range(self.config.gradient_steps):
-                latest_metrics = self._train_step()
-        return latest_metrics
+                latest = self._train_step()
+        return latest
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)
         target = self._td_target(batch)
         predicted = self.q_network(batch.observations).gather(1, batch.actions)
         loss = nn.functional.smooth_l1_loss(predicted, target)
+        return self._optimize(loss)
 
+    def _optimize(self, loss: torch.Tensor) -> dict[str, float | int]:
         self.optimizer.zero_grad()
         loss.backward()
         gradient_norm = nn.utils.clip_grad_norm_(
@@ -308,12 +310,25 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
 
     @torch.no_grad()
     def _td_target(self, batch: ReplayBatch) -> torch.Tensor:
-        next_q_values = (
-            self.target_network(batch.next_observations).max(dim=1, keepdim=True).values
-        )
+        if self.config.double_dqn:
+            next_actions = self.q_network(batch.next_observations).argmax(
+                dim=1, keepdim=True
+            )
+            next_q_values = self.target_network(batch.next_observations).gather(
+                1, next_actions
+            )
+        else:
+            next_q_values = (
+                self.target_network(batch.next_observations)
+                .max(dim=1, keepdim=True)
+                .values
+            )
         return (
             batch.rewards + self.config.gamma * (1 - batch.terminated) * next_q_values
         )
+
+    def _q_values(self, network: nn.Module, observations: torch.Tensor) -> torch.Tensor:
+        return network(observations)
 
     def _validate_network(self, network: nn.Module) -> None:
         try:
@@ -332,6 +347,12 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
                 f"network must return shape {expected_shape}, got {actual_shape}"
             )
 
+    def _checkpoint_state(self) -> dict[str, Any]:
+        return {}
+
+    def _restore_checkpoint_state(self, state: dict[str, Any]) -> None:
+        del state
+
     def _as_observation(self, observation: Any) -> np.ndarray:
         array = np.asarray(observation, dtype=np.float32)
         if array.shape != self.observation_shape:
@@ -341,3 +362,21 @@ class DQN(OffPolicyAlgorithm[np.ndarray, int]):
             )
             raise ValueError(message)
         return array
+
+
+def _environment_dimensions(
+    env: gym.Env[Any, Any], algorithm_name: str
+) -> tuple[tuple[int, ...], int, int]:
+    """Check that the environment has a Box observation space and a Discrete action space,
+    and return their dimensions."""
+    if not isinstance(env.observation_space, gym.spaces.Box):
+        raise TypeError(f"{algorithm_name} requires a Box observation space")
+    if not isinstance(env.action_space, gym.spaces.Discrete):
+        raise TypeError(f"{algorithm_name} requires a Discrete action space")
+    if env.observation_space.shape is None or not env.observation_space.shape:
+        raise ValueError("the observation space must have a non-empty shape")
+    return (
+        tuple(env.observation_space.shape),
+        int(env.action_space.n),
+        int(env.action_space.start),
+    )

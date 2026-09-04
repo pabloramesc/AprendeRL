@@ -150,6 +150,36 @@ def test_vanilla_target_uses_target_max_and_bootstraps_only_on_truncation() -> N
     torch.testing.assert_close(target, torch.tensor([[1.0], [3.5]]))
 
 
+def test_double_dqn_selects_online_and_evaluates_target() -> None:
+    env = gym.make("CartPole-v1")
+    try:
+        agent = DQN(
+            env,
+            config=small_config(gamma=0.5, double_dqn=True),
+            device="cpu",
+        )
+        with torch.no_grad():
+            for parameter in agent.q_network.parameters():
+                parameter.zero_()
+            for parameter in agent.target_network.parameters():
+                parameter.zero_()
+            agent.q_network.q_head.bias.copy_(torch.tensor([5.0, 1.0]))
+            agent.target_network.q_head.bias.copy_(torch.tensor([2.0, 9.0]))
+        batch = ReplayBatch(
+            observations=torch.zeros(1, 4),
+            actions=torch.zeros(1, 1, dtype=torch.int64),
+            rewards=torch.ones(1, 1),
+            next_observations=torch.zeros(1, 4),
+            terminated=torch.zeros(1, 1),
+            truncated=torch.zeros(1, 1),
+        )
+        target = agent._td_target(batch)
+    finally:
+        env.close()
+
+    assert target.item() == pytest.approx(2.0)
+
+
 def test_environment_truncation_is_recorded_separately() -> None:
     env = gym.make("CartPole-v1", max_episode_steps=1)
     try:

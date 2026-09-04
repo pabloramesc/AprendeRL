@@ -70,3 +70,10 @@ first update; a positive value can produce optimistic initial exploration.
 
 The implementation is in
 [`src/aprenderl/algorithms/sarsa.py`](../../src/aprenderl/algorithms/sarsa.py).
+
+## Original report
+
+- Gavin A. Rummery and Mahesan Niranjan (1994),
+  [*On-line Q-learning Using Connectionist Systems*](https://www.cs.utexas.edu/~shivaram/readings/b2hd-RummeryNiranjan1994.html),
+  Cambridge University Engineering Department, Technical Report
+  CUED/F-INFENG/TR 166. The report introduced the update later named SARSA.

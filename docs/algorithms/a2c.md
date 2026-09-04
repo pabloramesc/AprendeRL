@@ -138,3 +138,13 @@ the runnable example is
 [`examples/train_a2c.ipynb`](../../examples/train_a2c.ipynb). The continuous
 example is
 [`examples/train_a2c_continuous.ipynb`](../../examples/train_a2c_continuous.ipynb).
+
+## Foundational papers
+
+- Volodymyr Mnih et al. (2016),
+  [*Asynchronous Methods for Deep Reinforcement Learning*](https://proceedings.mlr.press/v48/mniha16.html),
+  ICML 2016. Describes A3C, from which the synchronous A2C variant is derived.
+- John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, and Pieter
+  Abbeel (2016),
+  [*High-Dimensional Continuous Control Using Generalized Advantage Estimation*](https://arxiv.org/abs/1506.02438),
+  ICLR 2016. Introduces GAE.

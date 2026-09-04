@@ -131,3 +131,13 @@ A minimal standalone notebook that derives the discrete algorithm from its TD
 target and policy loss is in
 [`study/actor_critic.ipynb`](../../study/actor_critic.ipynb) and
 [`study/actor_critic_continuous.ipynb`](../../study/actor_critic_continuous.ipynb).
+
+## Foundational papers
+
+- Andrew G. Barto, Richard S. Sutton, and Charles W. Anderson (1983),
+  [*Neuronlike Adaptive Elements That Can Solve Difficult Learning Control Problems*](https://doi.org/10.1109/TSMC.1983.6313077),
+  IEEE Transactions on Systems, Man, and Cybernetics 13(5), 834–846.
+- Richard S. Sutton, David McAllester, Satinder Singh, and Yishay Mansour
+  (2000),
+  [*Policy Gradient Methods for Reinforcement Learning with Function Approximation*](https://proceedings.neurips.cc/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html),
+  Advances in Neural Information Processing Systems 12.

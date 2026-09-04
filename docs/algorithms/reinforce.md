@@ -107,6 +107,12 @@ and the runnable example is
 continuous example is
 [`examples/train_reinforce_continuous.ipynb`](../../examples/train_reinforce_continuous.ipynb).
 
-A nimimal standalone notebook for study is in
+A minimal standalone notebook for study is in
 [`study/reinforce.ipynb`](../../study/reinforce.ipynb) and
 [`study/reinforce_continuous.ipynb`](../../study/reinforce_continuous.ipynb).
+
+## Original paper
+
+- Ronald J. Williams (1992),
+  [*Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning*](https://doi.org/10.1007/BF00992696),
+  Machine Learning 8, 229–256.

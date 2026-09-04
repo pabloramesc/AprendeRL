@@ -70,7 +70,13 @@ The implementation is in
 [`src/aprenderl/algorithms/q_learning.py`](../../src/aprenderl/algorithms/q_learning.py).
 
 An example notebook for training and evaluation is in
-[`examples/train_qlearning.ipynb`](../../examples/train_qlearning.ipynb)
+[`examples/train_qlearning.ipynb`](../../examples/train_qlearning.ipynb).
 
-A nimimal standalone notebook for study is in
+A minimal standalone notebook for study is in
 [`study/q_learning.ipynb`](../../study/q_learning.ipynb).
+
+## Original paper
+
+- Christopher J. C. H. Watkins and Peter Dayan (1992),
+  [*Q-Learning*](https://doi.org/10.1007/BF00992698),
+  Machine Learning 8, 279–292.

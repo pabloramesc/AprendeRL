@@ -7,16 +7,32 @@ small enough to read in one sitting.
 
 ## Quick install
 
+### Using pip
+
+Create a standard Python virtual environment, activate it, and install the
+project with `pip`:
+
 ```bash
 git clone https://github.com/pabloramesc/AprendeRL.git
-cd ./AprendeRL
+cd AprendeRL
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install -e .
 ```
 
-Using a virtual environment is recommended to keep AprendeRL and its
-dependencies isolated from your system Python installation.
+### Using uv
+
+Alternatively, with [uv](https://docs.astral.sh/uv/) installed:
+
+```bash
+git clone https://github.com/pabloramesc/AprendeRL.git
+cd AprendeRL
+uv sync
+```
+
+`uv sync` creates the `.venv` virtual environment and installs AprendeRL with
+its locked dependencies. It may not install a `pip` executable, so use one
+complete workflow or the other.
 
 ## Minimal usage
 
@@ -54,45 +70,31 @@ agent = DQN(env, network)
 When `network` is omitted, AprendeRL creates its default MLP. A target network
 is made by deep-copying the supplied module.
 
-## Value-based coverage
+## Algorithm coverage
 
-AprendeRL includes the complete value-based roadmap:
+The public library follows a compact learning path:
 
-- bandit action-value estimation, Value Iteration, and Policy Iteration;
-- Monte Carlo Prediction and Control;
-- Q-Learning, SARSA, Expected SARSA, n-step SARSA, SARSA(lambda), and Dyna-Q;
-- DQN, Double DQN, Dueling DQN, prioritized replay, n-step DQN, and NoisyNet;
-- C51, Rainbow DQN, QR-DQN, and IQN.
+- tabular Q-Learning and SARSA;
+- DQN with optional Double DQN targets;
+- the paper-level distributional agents C51, Rainbow DQN, QR-DQN, IQN, and FQF;
+- REINFORCE, Actor-Critic, and A2C for discrete and continuous actions.
 
-Every trainable class follows `learn`, `predict`, `save`, and `load`. Planning
-classes interpret `learn(total_timesteps)` as a maximum number of planning
-sweeps or policy improvements.
+Every algorithm follows `learn`, `predict`, `save`, and `load`. Smaller
+foundational methods and individual DQN mechanisms remain as self-contained
+study notebooks rather than additional public classes.
 
 ## Example notebooks
 
 Complete training examples:
 
-- [Multi-Armed Bandits](examples/train_multi_armed_bandit.ipynb)
-- [Value Iteration](examples/train_value_iteration.ipynb)
-- [Policy Iteration](examples/train_policy_iteration.ipynb)
-- [Monte Carlo Prediction](examples/train_monte_carlo_prediction.ipynb)
-- [Monte Carlo Control](examples/train_monte_carlo_control.ipynb)
 - [Tabular Q-Learning](examples/train_qlearning.ipynb)
 - [Tabular SARSA](examples/train_sarsa.ipynb)
-- [Expected SARSA](examples/train_expected_sarsa.ipynb)
-- [n-step SARSA](examples/train_n_step_sarsa.ipynb)
-- [SARSA(lambda)](examples/train_sarsa_lambda.ipynb)
-- [Dyna-Q](examples/train_dyna_q.ipynb)
-- [DQN](examples/train_dqn.ipynb)
-- [Double DQN](examples/train_double_dqn.ipynb)
-- [Dueling DQN](examples/train_dueling_dqn.ipynb)
-- [Prioritized DQN](examples/train_prioritized_dqn.ipynb)
-- [n-step DQN](examples/train_n_step_dqn.ipynb)
-- [NoisyNet DQN](examples/train_noisy_dqn.ipynb)
+- [DQN with Double DQN targets](examples/train_dqn.ipynb)
 - [C51](examples/train_c51.ipynb)
 - [Rainbow DQN](examples/train_rainbow_dqn.ipynb)
 - [QR-DQN](examples/train_qr_dqn.ipynb)
 - [IQN](examples/train_iqn.ipynb)
+- [FQF](examples/train_fqf.ipynb)
 - [REINFORCE](examples/train_reinforce.ipynb)
 - [REINFORCE on continuous actions](examples/train_reinforce_continuous.ipynb)
 - [Actor-Critic](examples/train_actor_critic.ipynb)
@@ -105,6 +107,10 @@ the beginning, so you can switch to another environment compatible with the
 algorithm's observation and action spaces.
 
 ## Study notebooks
+
+These notebooks implement concepts directly with Gymnasium, NumPy, and
+PyTorch. They intentionally cover more algorithms and intermediate variants
+than the maintained public API.
 
 - [Multi-Armed Bandits](study/multi_armed_bandit.ipynb)
 - [Value Iteration](study/value_iteration.ipynb)
@@ -136,7 +142,7 @@ algorithm's observation and action spaces.
 
 ```text
 src/aprenderl/
-├── algorithms/      # Interfaces, value-based methods, and policy gradients
+├── algorithms/      # Core algorithms and the paper-level DQN family
 ├── buffers/         # Replay and ordered rollout buffers
 ├── callbacks/       # Training lifecycle hooks
 ├── distributions/   # Categorical, Gaussian, and squashed Gaussian policies

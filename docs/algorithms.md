@@ -11,19 +11,21 @@ viewers.
   - [Termination versus truncation](#termination-versus-truncation)
   - [Epsilon-greedy exploration](#epsilon-greedy-exploration)
   - [Policy-gradient action distributions](#policy-gradient-action-distributions)
-- [Value estimation and planning](#value-estimation-and-planning)
 - [Off-policy algorithms](#off-policy-algorithms)
   - [Tabular Q-Learning](#tabular-q-learning)
-  - [Dyna-Q](#dyna-q)
   - [Deep Q-Network (DQN)](#deep-q-network-dqn)
-  - [DQN variants](#dqn-variants)
+  - [Distributional DQN family](#distributional-dqn-family)
+    - [C51](#c51)
+    - [Rainbow DQN](#rainbow-dqn)
+    - [QR-DQN](#qr-dqn)
+    - [IQN](#iqn)
+    - [FQF](#fqf)
 - [On-policy algorithms](#on-policy-algorithms)
-  - [Monte Carlo Control](#monte-carlo-control)
   - [Tabular SARSA](#tabular-sarsa)
-  - [Expected and multi-step SARSA](#expected-and-multi-step-sarsa)
   - [REINFORCE](#reinforce)
   - [Actor-Critic](#actor-critic)
   - [A2C](#a2c)
+- [General references](#general-references)
 
 ## Notation
 
@@ -47,13 +49,10 @@ Q^*(s,a) = \mathbb{E}\left[r_{t+1}
 + \gamma \max_{a'} Q^*(s_{t+1},a') \mid s_t=s,a_t=a\right].
 $$
 
-Value and policy iteration apply Bellman operators to an exact model. Monte
-Carlo methods average complete sampled returns. Q-Learning and the DQN family
-use greedy temporal-difference targets, while Dyna-Q adds learned-model updates.
-SARSA variants learn from the current behavior policy using sampled, expected,
-multi-step, or eligibility-trace targets. REINFORCE optimizes a parameterized
-policy from sampled returns, while Actor-Critic and A2C combine policy and value
-learning.
+Q-Learning and the DQN family use greedy temporal-difference targets. SARSA
+instead bootstraps from the next action sampled by its behavior policy.
+REINFORCE optimizes a parameterized policy from sampled returns, while
+Actor-Critic and A2C combine policy and value learning.
 
 ### Termination versus truncation
 
@@ -69,7 +68,7 @@ still bootstraps because the underlying MDP did not terminate.
 
 ### Epsilon-greedy exploration
 
-During the tabular TD methods and non-NoisyNet DQN variants, actions use
+During the tabular methods and every DQN-family agent except Rainbow, actions use
 
 $$
 a_t =
@@ -107,14 +106,6 @@ The Gaussian path keeps the on-policy implementations compact and educational;
 dedicated continuous-control methods such as SAC and TD3 will generally be more
 sample efficient once they are implemented.
 
-## Value estimation and planning
-
-Multi-armed bandits estimate one value per arm without a state transition
-model. Value Iteration and Policy Iteration plan from an exact finite model.
-Monte Carlo Prediction estimates the state value of a fixed policy from
-complete sampled returns. These methods do not fit the behavior-versus-target
-policy distinction used below. [Read the classical value-method guide](algorithms/classical_value_methods.md).
-
 ## Off-policy algorithms
 
 An **off-policy** algorithm can learn about a target policy from transitions
@@ -126,22 +117,55 @@ or learn a greedy policy while collecting exploratory actions.
 Learns action values in a table using one-step temporal-difference updates and
 epsilon-greedy exploration. [Read the full guide](algorithms/q_learning.md).
 
-### Dyna-Q
-
-Combines every real Q-Learning update with sampled planning updates from a
-learned tabular model. [Read the classical value-method guide](algorithms/classical_value_methods.md#dyna-q).
-
 ### Deep Q-Network (DQN)
 
 Approximates action values with a neural network trained from replayed
-transitions. [Read the full guide](algorithms/dqn.md).
+transitions. It optionally uses Double DQN target selection without introducing
+a second public algorithm class. [Read the full guide](algorithms/dqn.md).
 
-### DQN variants
+### Distributional DQN family
 
-Double DQN, Dueling DQN, Prioritized DQN, n-step DQN, NoisyNet DQN, C51,
-Rainbow DQN, QR-DQN, and IQN isolate improvements to targets, architectures,
-replay, exploration, and return-distribution modeling.
-[Read the DQN variant guide](algorithms/dqn_variants.md).
+C51, Rainbow DQN, QR-DQN, IQN, and FQF each have a public algorithm class, a
+matching configuration class, and a separate top-level source module. All
+inherit DQN's environment loop, replay schedule, target-network updates,
+checkpoint format, and optional Double-DQN action selection unless their guide
+says otherwise.
+
+| Algorithm | Return representation | Fraction or support locations | Exploration |
+| --- | --- | --- | --- |
+| C51 | probabilities over atoms | fixed values | epsilon-greedy |
+| Rainbow DQN | probabilities over atoms | fixed values | NoisyNet |
+| QR-DQN | equally weighted quantile values | fixed fractions | epsilon-greedy |
+| IQN | sampled quantile values | sampled fractions | epsilon-greedy |
+| FQF | weighted quantile values | learned fractions | epsilon-greedy |
+
+#### C51
+
+Projects a one-step distributional Bellman target onto a fixed categorical
+support and minimizes cross-entropy. [Read the C51 guide](algorithms/c51.md).
+
+#### Rainbow DQN
+
+Combines Double DQN, dueling categorical heads, prioritized replay, n-step
+returns, NoisyNet exploration, and C51 in one fixed agent. Rainbow owns these
+mechanisms; they are components rather than separate public algorithms.
+[Read the Rainbow DQN guide](algorithms/rainbow.md).
+
+#### QR-DQN
+
+Predicts equally weighted return quantiles at a fixed grid of fractions and
+uses the quantile Huber loss. [Read the QR-DQN guide](algorithms/qr_dqn.md).
+
+#### IQN
+
+Samples quantile fractions and conditions the value network on their cosine
+embeddings to approximate a continuous quantile function.
+[Read the IQN guide](algorithms/iqn.md).
+
+#### FQF
+
+Learns both the return quantile values and the fraction intervals used to
+summarize them. [Read the FQF guide](algorithms/fqf.md).
 
 ## On-policy algorithms
 
@@ -149,21 +173,10 @@ An **on-policy** algorithm updates the same policy that generated its current
 training trajectories. Once the policy changes, old trajectories are generally
 not reused for later updates.
 
-### Monte Carlo Control
-
-Learns action values by averaging returns from complete epsilon-greedy episodes.
-[Read the classical value-method guide](algorithms/classical_value_methods.md#monte-carlo-control).
-
 ### Tabular SARSA
 
 Learns action values in a table using the next action selected by the current
 epsilon-greedy behavior policy. [Read the full guide](algorithms/sarsa.md).
-
-### Expected and multi-step SARSA
-
-Expected SARSA integrates over epsilon-greedy next actions, n-step SARSA uses a
-longer sampled return, and SARSA(lambda) propagates each TD error through
-eligibility traces. [Read the classical value-method guide](algorithms/classical_value_methods.md#expected-sarsa).
 
 ### REINFORCE
 
@@ -183,3 +196,14 @@ Updates a categorical or diagonal-Gaussian actor and state-value critic after
 fixed-length on-policy rollouts, using generalized advantage estimation to
 combine multi-step reward information with value bootstrapping.
 [Read the full guide](algorithms/a2c.md).
+
+## General references
+
+- Richard S. Sutton and Andrew G. Barto (2018),
+  [*Reinforcement Learning: An Introduction*, second edition](http://incompleteideas.net/book/the-book-2nd.html),
+  MIT Press. Covers the shared value-function, return, Bellman-equation, and
+  policy-gradient notation used throughout these guides.
+- Fabio Pardo, Arash Tavakoli, Vitaly Levdik, and Petar Kormushev (2018),
+  [*Time Limits in Reinforcement Learning*](https://arxiv.org/abs/1712.00378),
+  ICML 2018. Explains why time-limit truncation and true MDP termination require
+  different bootstrapping treatment.
