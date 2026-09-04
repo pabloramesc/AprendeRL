@@ -70,10 +70,10 @@ The implementation is in
 [`src/aprenderl/algorithms/q_learning.py`](../../src/aprenderl/algorithms/q_learning.py).
 
 An example notebook for training and evaluation is in
-[`examples/train_qlearning.ipynb`](../../examples/train_qlearning.ipynb).
+[`examples/qlearning.ipynb`](../../examples/qlearning.ipynb).
 
 A minimal standalone notebook for study is in
-[`study/q_learning.ipynb`](../../study/q_learning.ipynb).
+[`Q-learning study notebook`](../../study/03_temporal_difference/02_q_learning.ipynb).
 
 ## Original paper
 

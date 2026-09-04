@@ -11,6 +11,7 @@ from aprenderl.algorithms.c51 import C51, C51Config
 from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.algorithms.fqf import FQF, FQFConfig
 from aprenderl.algorithms.iqn import IQN, IQNConfig
+from aprenderl.algorithms.policy_gradient import PolicyGradientAlgorithm
 from aprenderl.algorithms.q_learning import QLearning, QLearningConfig
 from aprenderl.algorithms.qr_dqn import QRDQN, QRDQNConfig
 from aprenderl.algorithms.rainbow import RainbowDQN, RainbowDQNConfig
@@ -33,6 +34,7 @@ __all__ = [
     "IQNConfig",
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
+    "PolicyGradientAlgorithm",
     "QLearning",
     "QLearningConfig",
     "REINFORCE",

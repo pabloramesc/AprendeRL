@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
-import numpy as np
 import torch
 from torch import nn
 
-from aprenderl.algorithms.dqn import DQN, DQNConfig, _environment_dimensions
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.buffers import ReplayBatch
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
@@ -48,28 +47,29 @@ class C51(DQN):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        actual_config = config or C51Config()
-        provided_network = network is not None
-        if network is None:
-            observation_shape, action_dim, _ = _environment_dimensions(env, "C51")
-            network = CategoricalQNetwork(
-                int(np.prod(observation_shape)), action_dim, actual_config.atoms
-            )
         super().__init__(
             env,
             network,
-            config=actual_config,
+            config=config or C51Config(),
             device=device,
             callback=callback,
             logger=logger,
         )
-        self._uses_default_network = not provided_network
         self.support = torch.linspace(
             self.config.v_min,
             self.config.v_max,
             self.config.atoms,
             device=self.device,
         )
+
+    def _make_default_network(self) -> nn.Module:
+        return CategoricalQNetwork(
+            self.observation_dim, self.action_dim, self.config.atoms
+        )
+
+    # ------------------------------------------------------------------
+    # C51 learning rule
+    # ------------------------------------------------------------------
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)
@@ -115,19 +115,20 @@ class C51(DQN):
         return network(observations).softmax(dim=-1)
 
     def _validate_network(self, network: nn.Module) -> None:
+        sample = torch.zeros((1, *self.observation_shape), device=self.device)
         try:
             with torch.no_grad():
-                output = network(
-                    torch.zeros((1, *self.observation_shape), device=self.device)
-                )
+                output = network(sample)
         except Exception as error:
             raise ValueError(
                 "network could not process one environment observation"
             ) from error
-        expected = (1, self.action_dim, self.config.atoms)
-        if not isinstance(output, torch.Tensor) or output.shape != expected:
-            actual = getattr(output, "shape", None)
-            raise ValueError(f"network must return shape {expected}, got {actual}")
+        expected_shape = (1, self.action_dim, self.config.atoms)
+        actual_shape = getattr(output, "shape", None)
+        if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
+            raise ValueError(
+                f"network must return shape {expected_shape}, got {actual_shape}"
+            )
 
 
 def categorical_projection(

@@ -18,6 +18,7 @@ from aprenderl.utils import seed_everything
 
 ObservationT = TypeVar("ObservationT")
 ActionT = TypeVar("ActionT")
+TrainingMetrics = dict[str, float | int]
 
 
 class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
@@ -117,9 +118,10 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
         self.callback.on_training_end(self)
         return self
 
-    @abstractmethod
     def _sample_action(self, observation: ObservationT) -> ActionT:
-        """Select the action used for the next environment interaction."""
+        """Select a behavior action; algorithms may override to cache actions."""
+
+        return self.predict(observation, deterministic=False)
 
     @abstractmethod
     def _update_from_transition(
@@ -182,6 +184,32 @@ class BaseAlgorithm(ABC, Generic[ObservationT, ActionT]):
         if training_metrics and "train/loss" in training_metrics:
             metrics["loss"] = f"{float(training_metrics['train/loss']):.4f}"
         return metrics
+
+    def _training_state(self) -> dict[str, Any]:
+        """Return training counters and completed-episode history."""
+
+        return {
+            "num_timesteps": self.num_timesteps,
+            "num_updates": self.num_updates,
+            "episode_returns": self.episode_returns,
+            "episode_lengths": self.episode_lengths,
+        }
+
+    def _restore_training_state(self, state: Mapping[str, Any]) -> None:
+        """Restore state produced by :meth:`_training_state`."""
+
+        self.num_timesteps = int(state["num_timesteps"])
+        self.num_updates = int(state["num_updates"])
+        self.episode_returns = [float(value) for value in state["episode_returns"]]
+        self.episode_lengths = [int(value) for value in state["episode_lengths"]]
+
+    @staticmethod
+    def _reject_unknown_arguments(arguments: Mapping[str, Any]) -> None:
+        """Raise a consistent error for unsupported keyword arguments."""
+
+        if arguments:
+            names = ", ".join(sorted(arguments))
+            raise TypeError(f"unexpected keyword arguments: {names}")
 
     @staticmethod
     def _make_callback(

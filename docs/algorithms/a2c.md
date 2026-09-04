@@ -135,9 +135,9 @@ training counters.
 The implementation is in
 [`src/aprenderl/algorithms/a2c.py`](../../src/aprenderl/algorithms/a2c.py), and
 the runnable example is
-[`examples/train_a2c.ipynb`](../../examples/train_a2c.ipynb). The continuous
+[`examples/a2c.ipynb`](../../examples/a2c.ipynb). The continuous
 example is
-[`examples/train_a2c_continuous.ipynb`](../../examples/train_a2c_continuous.ipynb).
+[`examples/a2c_continuous.ipynb`](../../examples/a2c_continuous.ipynb).
 
 ## Foundational papers
 

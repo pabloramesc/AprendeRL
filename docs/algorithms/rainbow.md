@@ -146,8 +146,8 @@ Its categorical and noisy network components are in
 and [`src/aprenderl/networks/q_network.py`](../../src/aprenderl/networks/q_network.py),
 and prioritized n-step storage is in
 [`src/aprenderl/buffers/replay.py`](../../src/aprenderl/buffers/replay.py).
-See the runnable [`Rainbow example`](../../examples/train_rainbow_dqn.ipynb)
-and the standalone [`Rainbow study notebook`](../../study/rainbow_dqn.ipynb).
+See the runnable [`Rainbow example`](../../examples/rainbow_dqn.ipynb)
+and the standalone [`Rainbow study notebook`](../../study/05_distributional_rl/04_rainbow_dqn.ipynb).
 
 ## Original and component papers
 

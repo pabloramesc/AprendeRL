@@ -11,6 +11,7 @@ from aprenderl.algorithms import (
     BaseAlgorithm,
     OffPolicyAlgorithm,
     OnPolicyAlgorithm,
+    PolicyGradientAlgorithm,
     QLearning,
 )
 
@@ -31,3 +32,5 @@ def test_algorithms_use_their_policy_family_base_class() -> None:
     assert issubclass(QLearning, OffPolicyAlgorithm)
     assert issubclass(SARSA, OnPolicyAlgorithm)
     assert issubclass(REINFORCE, OnPolicyAlgorithm)
+    assert issubclass(ActorCritic, PolicyGradientAlgorithm)
+    assert issubclass(REINFORCE, PolicyGradientAlgorithm)

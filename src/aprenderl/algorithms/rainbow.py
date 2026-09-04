@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from aprenderl.algorithms.dqn import DQN, DQNConfig, _environment_dimensions
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.buffers import PrioritizedReplayBuffer, ReplayBatch
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
@@ -71,29 +71,14 @@ class RainbowDQN(DQN):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        actual_config = config or RainbowDQNConfig()
-        provided_network = network is not None
-        if network is None:
-            observation_shape, action_dim, _ = _environment_dimensions(
-                env, "RainbowDQN"
-            )
-            network = CategoricalQNetwork(
-                int(np.prod(observation_shape)),
-                action_dim,
-                actual_config.atoms,
-                dueling=True,
-                noisy=True,
-                initial_sigma=actual_config.noise_sigma,
-            )
         super().__init__(
             env,
             network,
-            config=actual_config,
+            config=config or RainbowDQNConfig(),
             device=device,
             callback=callback,
             logger=logger,
         )
-        self._uses_default_network = not provided_network
         self.support = torch.linspace(
             self.config.v_min,
             self.config.v_max,
@@ -101,6 +86,20 @@ class RainbowDQN(DQN):
             device=self.device,
         )
         self._pending: deque[Transition[np.ndarray, int]] = deque()
+
+    def _make_default_network(self) -> nn.Module:
+        return CategoricalQNetwork(
+            self.observation_dim,
+            self.action_dim,
+            self.config.atoms,
+            dueling=True,
+            noisy=True,
+            initial_sigma=self.config.noise_sigma,
+        )
+
+    # ------------------------------------------------------------------
+    # Rainbow learning rule
+    # ------------------------------------------------------------------
 
     @property
     def priority_beta(self) -> float:
@@ -177,7 +176,7 @@ class RainbowDQN(DQN):
         )
         loss = (batch.weights.squeeze(1) * element_loss).mean()
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         gradient_norm = nn.utils.clip_grad_norm_(
             self.q_network.parameters(), self.config.max_grad_norm
@@ -223,19 +222,20 @@ class RainbowDQN(DQN):
         return network(observations).softmax(dim=-1)
 
     def _validate_network(self, network: nn.Module) -> None:
+        sample = torch.zeros((1, *self.observation_shape), device=self.device)
         try:
             with torch.no_grad():
-                output = network(
-                    torch.zeros((1, *self.observation_shape), device=self.device)
-                )
+                output = network(sample)
         except Exception as error:
             raise ValueError(
-                "network must implement the Rainbow network API"
+                "network could not process one environment observation"
             ) from error
-        expected = (1, self.action_dim, self.config.atoms)
-        if not isinstance(output, torch.Tensor) or output.shape != expected:
-            actual = getattr(output, "shape", None)
-            raise ValueError(f"network must return shape {expected}, got {actual}")
+        expected_shape = (1, self.action_dim, self.config.atoms)
+        actual_shape = getattr(output, "shape", None)
+        if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
+            raise ValueError(
+                f"network must return shape {expected_shape}, got {actual_shape}"
+            )
 
 
 def categorical_projection(

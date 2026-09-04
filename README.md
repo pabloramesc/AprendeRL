@@ -83,24 +83,30 @@ Every algorithm follows `learn`, `predict`, `save`, and `load`. Smaller
 foundational methods and individual DQN mechanisms remain as self-contained
 study notebooks rather than additional public classes.
 
+Shared environment interaction and training state live in `BaseAlgorithm`.
+`OnPolicyAlgorithm` and `OffPolicyAlgorithm` identify the learning family,
+while `PolicyGradientAlgorithm` contains the neural policy and action-space
+machinery shared by REINFORCE, Actor-Critic, and A2C. The mathematical update
+for each algorithm remains in its own module.
+
 ## Example notebooks
 
 Complete training examples:
 
-- [Tabular Q-Learning](examples/train_qlearning.ipynb)
-- [Tabular SARSA](examples/train_sarsa.ipynb)
-- [DQN with Double DQN targets](examples/train_dqn.ipynb)
-- [C51](examples/train_c51.ipynb)
-- [Rainbow DQN](examples/train_rainbow_dqn.ipynb)
-- [QR-DQN](examples/train_qr_dqn.ipynb)
-- [IQN](examples/train_iqn.ipynb)
-- [FQF](examples/train_fqf.ipynb)
-- [REINFORCE](examples/train_reinforce.ipynb)
-- [REINFORCE on continuous actions](examples/train_reinforce_continuous.ipynb)
-- [Actor-Critic](examples/train_actor_critic.ipynb)
-- [Actor-Critic on continuous actions](examples/train_actor_critic_continuous.ipynb)
-- [A2C](examples/train_a2c.ipynb)
-- [A2C on continuous actions](examples/train_a2c_continuous.ipynb)
+- [Tabular Q-Learning](examples/qlearning.ipynb)
+- [Tabular SARSA](examples/sarsa.ipynb)
+- [DQN with Double DQN targets](examples/dqn.ipynb)
+- [C51](examples/c51.ipynb)
+- [Rainbow DQN](examples/rainbow_dqn.ipynb)
+- [QR-DQN](examples/qr_dqn.ipynb)
+- [IQN](examples/iqn.ipynb)
+- [FQF](examples/fqf.ipynb)
+- [REINFORCE](examples/reinforce.ipynb)
+- [REINFORCE on continuous actions](examples/reinforce_continuous.ipynb)
+- [Actor-Critic](examples/actor_critic.ipynb)
+- [Actor-Critic on continuous actions](examples/actor_critic_continuous.ipynb)
+- [A2C](examples/a2c.ipynb)
+- [A2C on continuous actions](examples/a2c_continuous.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
@@ -109,34 +115,9 @@ algorithm's observation and action spaces.
 ## Study notebooks
 
 These notebooks implement concepts directly with Gymnasium, NumPy, and
-PyTorch. They intentionally cover more algorithms and intermediate variants
-than the maintained public API.
-
-- [Multi-Armed Bandits](study/multi_armed_bandit.ipynb)
-- [Value Iteration](study/value_iteration.ipynb)
-- [Policy Iteration](study/policy_iteration.ipynb)
-- [Monte Carlo Prediction](study/monte_carlo_prediction.ipynb)
-- [Monte Carlo Control](study/monte_carlo_control.ipynb)
-- [Tabular Q-Learning](study/q_learning.ipynb)
-- [Tabular SARSA](study/sarsa.ipynb)
-- [Expected SARSA](study/expected_sarsa.ipynb)
-- [n-step SARSA](study/n_step_sarsa.ipynb)
-- [SARSA(lambda)](study/sarsa_lambda.ipynb)
-- [Dyna-Q](study/dyna_q.ipynb)
-- [DQN](study/dqn.ipynb)
-- [Double DQN](study/double_dqn.ipynb)
-- [Dueling DQN](study/dueling_dqn.ipynb)
-- [Prioritized DQN](study/prioritized_dqn.ipynb)
-- [n-step DQN](study/n_step_dqn.ipynb)
-- [NoisyNet DQN](study/noisy_dqn.ipynb)
-- [C51](study/c51.ipynb)
-- [Rainbow DQN](study/rainbow_dqn.ipynb)
-- [QR-DQN](study/qr_dqn.ipynb)
-- [IQN](study/iqn.ipynb)
-- [REINFORCE](study/reinforce.ipynb)
-- [REINFORCE on continuous actions](study/reinforce_continuous.ipynb)
-- [Actor-Critic](study/actor_critic.ipynb)
-- [Actor-Critic on continuous actions](study/actor_critic_continuous.ipynb)
+PyTorch. They are organized as a seven-chapter learning path, from bandits and
+dynamic programming through value-based deep RL and policy gradients. Start
+with the [study guide](study/README.md).
 
 ## Repository layout
 

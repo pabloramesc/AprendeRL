@@ -103,13 +103,13 @@ checkpoints retain the vanilla behavior. A custom baseline can be supplied as
 The implementation is in
 [`src/aprenderl/algorithms/reinforce.py`](../../src/aprenderl/algorithms/reinforce.py),
 and the runnable example is
-[`examples/train_reinforce.ipynb`](../../examples/train_reinforce.ipynb). The
+[`examples/reinforce.ipynb`](../../examples/reinforce.ipynb). The
 continuous example is
-[`examples/train_reinforce_continuous.ipynb`](../../examples/train_reinforce_continuous.ipynb).
+[`examples/reinforce_continuous.ipynb`](../../examples/reinforce_continuous.ipynb).
 
 A minimal standalone notebook for study is in
-[`study/reinforce.ipynb`](../../study/reinforce.ipynb) and
-[`study/reinforce_continuous.ipynb`](../../study/reinforce_continuous.ipynb).
+[`REINFORCE`](../../study/06_policy_gradients/01_reinforce.ipynb) and
+[`continuous REINFORCE`](../../study/06_policy_gradients/02_reinforce_continuous.ipynb).
 
 ## Original paper
 

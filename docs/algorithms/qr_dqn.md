@@ -99,8 +99,8 @@ The algorithm and loss helper are in
 [`src/aprenderl/algorithms/qr_dqn.py`](../../src/aprenderl/algorithms/qr_dqn.py),
 and the default network is in
 [`src/aprenderl/networks/distributional.py`](../../src/aprenderl/networks/distributional.py).
-See the runnable [`QR-DQN example`](../../examples/train_qr_dqn.ipynb) and the
-standalone [`QR-DQN study notebook`](../../study/qr_dqn.ipynb).
+See the runnable [`QR-DQN example`](../../examples/qr_dqn.ipynb) and the
+standalone [`QR-DQN study notebook`](../../study/05_distributional_rl/02_qr_dqn.ipynb).
 
 ## Original paper
 

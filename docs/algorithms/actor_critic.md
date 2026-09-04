@@ -124,13 +124,13 @@ finite actions this is the pre-squash entropy.
 The implementation is in
 [`src/aprenderl/algorithms/actor_critic.py`](../../src/aprenderl/algorithms/actor_critic.py),
 and the runnable example is
-[`examples/train_actor_critic.ipynb`](../../examples/train_actor_critic.ipynb).
+[`examples/actor_critic.ipynb`](../../examples/actor_critic.ipynb).
 The continuous example is
-[`examples/train_actor_critic_continuous.ipynb`](../../examples/train_actor_critic_continuous.ipynb).
+[`examples/actor_critic_continuous.ipynb`](../../examples/actor_critic_continuous.ipynb).
 A minimal standalone notebook that derives the discrete algorithm from its TD
 target and policy loss is in
-[`study/actor_critic.ipynb`](../../study/actor_critic.ipynb) and
-[`study/actor_critic_continuous.ipynb`](../../study/actor_critic_continuous.ipynb).
+[`Actor-Critic`](../../study/06_policy_gradients/03_actor_critic.ipynb) and
+[`continuous Actor-Critic`](../../study/06_policy_gradients/04_actor_critic_continuous.ipynb).
 
 ## Foundational papers
 

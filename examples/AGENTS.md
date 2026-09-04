@@ -1,15 +1,29 @@
 # Notebook examples
 
-Use `train_dqn.ipynb` as the reference for style and structure.
+Use `dqn.ipynb` as the reference for discrete value-based examples and
+`reinforce_continuous.ipynb` for continuous-policy examples.
 
-- Name notebooks `train_<algorithm>.ipynb`.
-- Start with a very brief explanation of the algorithm, environment, and concepts demonstrated.
-- Include the algorithm's central mathematical objective or update, briefly defining its symbols.
-- Keep imports, environment setup, configuration, and training simple and explicit.
-- Use the public `aprenderl` API and an algorithm configuration class when available.
+## Purpose and organization
+
+- Demonstrate the public `aprenderl` API; keep algorithm reimplementations in
+  the study notebooks.
+- Name notebooks `<algorithm>.ipynb`.
+- Update README and algorithm-documentation links when renaming an example.
+
+## Content
+
+- Start with a brief explanation of the algorithm, environment, and concepts.
+- Include the central mathematical objective or update and briefly define its
+  symbols.
+- Keep imports, environment setup, configuration, and training explicit.
+- Use an algorithm configuration class when available.
 - Plot episode returns and a moving average when applicable.
-- End with a rendered policy evaluation using `evaluate_policy`.
-- Close environments after use, using `try`/`finally` for evaluation environments.
-- Keep prose consistent with the code, including episode counts and behavior.
+- End with rendered policy evaluation using `evaluate_policy` and a separate
+  evaluation environment.
+- Close environments with `try`/`finally` and keep prose consistent with code.
 - Choose settings that train reasonably quickly on CPU.
-- Clear outputs and execution counts before committing.
+
+## Hygiene
+
+- Do not commit execution counts, cell outputs, checkpoints, videos, or other
+  generated artifacts.

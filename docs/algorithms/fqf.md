@@ -121,7 +121,7 @@ The algorithm and both loss helpers are in
 [`src/aprenderl/algorithms/fqf.py`](../../src/aprenderl/algorithms/fqf.py), and
 the default network is in
 [`src/aprenderl/networks/distributional.py`](../../src/aprenderl/networks/distributional.py).
-See the runnable [`FQF example`](../../examples/train_fqf.ipynb).
+See the runnable [`FQF example`](../../examples/fqf.ipynb).
 
 ## Original paper
 

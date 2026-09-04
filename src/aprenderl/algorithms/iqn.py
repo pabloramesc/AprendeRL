@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
-import numpy as np
 import torch
 from torch import nn
 
-from aprenderl.algorithms.dqn import DQN, DQNConfig, _environment_dimensions
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.networks import ImplicitQuantileNetwork
@@ -50,24 +49,25 @@ class IQN(DQN):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        actual_config = config or IQNConfig()
-        provided_network = network is not None
-        if network is None:
-            observation_shape, action_dim, _ = _environment_dimensions(env, "IQN")
-            network = ImplicitQuantileNetwork(
-                int(np.prod(observation_shape)),
-                action_dim,
-                embedding_dim=actual_config.embedding_dim,
-            )
         super().__init__(
             env,
             network,
-            config=actual_config,
+            config=config or IQNConfig(),
             device=device,
             callback=callback,
             logger=logger,
         )
-        self._uses_default_network = not provided_network
+
+    def _make_default_network(self) -> nn.Module:
+        return ImplicitQuantileNetwork(
+            self.observation_dim,
+            self.action_dim,
+            embedding_dim=self.config.embedding_dim,
+        )
+
+    # ------------------------------------------------------------------
+    # IQN learning rule
+    # ------------------------------------------------------------------
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)

@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
-import numpy as np
 import torch
 from torch import nn
 
-from aprenderl.algorithms.dqn import DQN, DQNConfig, _environment_dimensions
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.networks import FQFNetwork
@@ -55,25 +54,14 @@ class FQF(DQN):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        actual_config = config or FQFConfig()
-        provided_network = network is not None
-        if network is None:
-            observation_shape, action_dim, _ = _environment_dimensions(env, "FQF")
-            network = FQFNetwork(
-                int(np.prod(observation_shape)),
-                action_dim,
-                actual_config.quantiles,
-                embedding_dim=actual_config.embedding_dim,
-            )
         super().__init__(
             env,
             network,
-            config=actual_config,
+            config=config or FQFConfig(),
             device=device,
             callback=callback,
             logger=logger,
         )
-        self._uses_default_network = not provided_network
         self.optimizer = torch.optim.Adam(
             self.q_network.quantile_parameters(),
             lr=self.config.learning_rate,
@@ -84,6 +72,18 @@ class FQF(DQN):
             alpha=0.95,
             eps=1e-5,
         )
+
+    def _make_default_network(self) -> nn.Module:
+        return FQFNetwork(
+            self.observation_dim,
+            self.action_dim,
+            self.config.quantiles,
+            embedding_dim=self.config.embedding_dim,
+        )
+
+    # ------------------------------------------------------------------
+    # FQF learning rule
+    # ------------------------------------------------------------------
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)
@@ -107,7 +107,7 @@ class FQF(DQN):
         fraction_objective = (
             fraction_loss - self.config.entropy_coefficient * entropy.mean()
         )
-        self.fraction_optimizer.zero_grad()
+        self.fraction_optimizer.zero_grad(set_to_none=True)
         fraction_objective.backward()
         fraction_gradient_norm = nn.utils.clip_grad_norm_(
             self.q_network.fraction_parameters(), self.config.max_grad_norm
@@ -140,7 +140,7 @@ class FQF(DQN):
             tau_hats,
             self.config.huber_threshold,
         )
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         quantile_loss.backward()
         quantile_gradient_norm = nn.utils.clip_grad_norm_(
             self.q_network.quantile_parameters(), self.config.max_grad_norm

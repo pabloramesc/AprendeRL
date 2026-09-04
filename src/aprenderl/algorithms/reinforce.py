@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -13,13 +12,13 @@ import torch
 from torch import nn
 from typing_extensions import Self
 
-from aprenderl.algorithms.base import OnPolicyAlgorithm
+from aprenderl.algorithms.policy_gradient import PolicyGradientAlgorithm
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.networks import ValueNetwork
-from aprenderl.policies.action_space import PolicyAction, PolicyActionSpace
+from aprenderl.policies.action_space import PolicyAction
 from aprenderl.types import Transition
-from aprenderl.utils import resolve_device
+from aprenderl.utils import load_torch_checkpoint, resolve_device
 
 
 @dataclass(frozen=True)
@@ -54,7 +53,7 @@ class REINFORCEConfig:
             raise ValueError("log_interval must be positive")
 
 
-class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
+class REINFORCE(PolicyGradientAlgorithm):
     """Episodic policy gradient for discrete or continuous ``Box`` actions.
 
     The policy is updated only from complete episodes. Each action is weighted
@@ -74,37 +73,17 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        self.config = config or REINFORCEConfig()
-        self.device = resolve_device(device)
-
-        if not isinstance(env.observation_space, gym.spaces.Box):
-            raise TypeError("REINFORCE requires a Box observation space")
-        if env.observation_space.shape is None or not env.observation_space.shape:
-            raise ValueError("the observation space must have a non-empty shape")
-
-        self.observation_shape = tuple(env.observation_space.shape)
-        self.observation_dim = int(np.prod(self.observation_shape))
-        self.policy_action_space = PolicyActionSpace(
-            env.action_space, self.device, "REINFORCE"
-        )
-        self.action_dim = self.policy_action_space.dim
-        self.action_shape = self.policy_action_space.shape
-        self.action_start = self.policy_action_space.start
+        actual_config = config or REINFORCEConfig()
         super().__init__(
             env,
-            seed=self.config.seed,
+            network,
+            config=actual_config,
+            device=device,
             callback=callback,
             logger=logger,
-            log_interval=self.config.log_interval,
+            policy_network_name="network",
         )
-
-        self._uses_default_network = network is None
-        self.policy_network = (
-            network
-            if network is not None
-            else self.policy_action_space.default_network(self.observation_dim)
-        ).to(self.device)
-        self._validate_network(self.policy_network)
+        self._uses_default_network = self._uses_default_policy_network
         self.optimizer = torch.optim.Adam(
             self.policy_network.parameters(), lr=self.config.learning_rate
         )
@@ -137,19 +116,9 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
         self._batch_returns: list[float] = []
         self._batch_episodes = 0
 
-    def predict(
-        self, observation: np.ndarray, *, deterministic: bool = False
-    ) -> PolicyAction:
-        """Choose the modal/mean action or sample from the policy."""
-
-        array = self._as_observation(observation)
-        tensor = torch.as_tensor(array, device=self.device).unsqueeze(0)
-        with torch.no_grad():
-            distribution = self.policy_action_space.distribution(
-                self.policy_network(tensor)
-            )
-            action = distribution.mode() if deterministic else distribution.sample()
-        return self.policy_action_space.action_from_tensor(action)
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
 
     def save(self, path: str | Path) -> None:
         """Save policy, optimizer, configuration, and training counters."""
@@ -178,10 +147,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
                     if self.value_optimizer is not None
                     else None
                 ),
-                "num_timesteps": self.num_timesteps,
-                "num_updates": self.num_updates,
-                "episode_returns": self.episode_returns,
-                "episode_lengths": self.episode_lengths,
+                **self._training_state(),
             },
             checkpoint_path,
         )
@@ -200,13 +166,8 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
         value_network = kwargs.pop("value_network", None)
         callback = kwargs.pop("callback", None)
         logger = kwargs.pop("logger", None)
-        if kwargs:
-            names = ", ".join(sorted(kwargs))
-            raise TypeError(f"unexpected keyword arguments: {names}")
-        try:
-            checkpoint = torch.load(path, map_location=device, weights_only=True)
-        except TypeError:  # PyTorch before the ``weights_only`` argument.
-            checkpoint = torch.load(path, map_location=device)
+        cls._reject_unknown_arguments(kwargs)
+        checkpoint = load_torch_checkpoint(path, device)
 
         if not checkpoint["uses_default_network"] and network is None:
             raise ValueError(
@@ -230,20 +191,7 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
             callback=callback,
             logger=logger,
         )
-        observation_matches = (
-            tuple(checkpoint["observation_shape"]) == algorithm.observation_shape
-        )
-        action_state = checkpoint.get("action_space")
-        if action_state is None:  # Backward compatibility with discrete checkpoints.
-            action_matches = not algorithm.policy_action_space.continuous and (
-                int(checkpoint["action_dim"]),
-                int(checkpoint["action_start"]),
-            ) == (algorithm.action_dim, algorithm.action_start)
-        else:
-            action_matches = algorithm.policy_action_space.matches_checkpoint(
-                action_state
-            )
-        if not observation_matches or not action_matches:
+        if not algorithm._checkpoint_spaces_match(checkpoint):
             raise ValueError("checkpoint spaces do not match environment")
 
         algorithm.policy_network.load_state_dict(checkpoint["policy_network"])
@@ -252,14 +200,12 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
             algorithm.value_network.load_state_dict(checkpoint["value_network"])
             assert algorithm.value_optimizer is not None
             algorithm.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
-        algorithm.num_timesteps = int(checkpoint["num_timesteps"])
-        algorithm.num_updates = int(checkpoint["num_updates"])
-        algorithm.episode_returns = list(checkpoint["episode_returns"])
-        algorithm.episode_lengths = list(checkpoint["episode_lengths"])
+        algorithm._restore_training_state(checkpoint)
         return algorithm
 
-    def _sample_action(self, observation: np.ndarray) -> PolicyAction:
-        return self.predict(observation, deterministic=False)
+    # ------------------------------------------------------------------
+    # REINFORCE learning rule
+    # ------------------------------------------------------------------
 
     def _update_from_transition(
         self, transition: Transition[np.ndarray, PolicyAction]
@@ -330,17 +276,18 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
             policy_loss - self.config.entropy_coefficient * entropy
         )
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         policy_objective_loss.backward()
         gradient_norm = nn.utils.clip_grad_norm_(
             self.policy_network.parameters(), self.config.max_grad_norm
         )
         self.optimizer.step()
+
         value_gradient_norm: torch.Tensor | None = None
         if value_loss is not None:
             assert self.value_network is not None
             assert self.value_optimizer is not None
-            self.value_optimizer.zero_grad()
+            self.value_optimizer.zero_grad(set_to_none=True)
             value_loss.backward()
             value_gradient_norm = nn.utils.clip_grad_norm_(
                 self.value_network.parameters(), self.config.max_grad_norm
@@ -372,43 +319,3 @@ class REINFORCE(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
         self._batch_returns.clear()
         self._batch_episodes = 0
         return metrics
-
-    def _progress_metrics(
-        self,
-        training_metrics: Mapping[str, float | int] | None = None,
-    ) -> dict[str, str | int]:
-        metrics = super()._progress_metrics(training_metrics)
-        if training_metrics and "train/entropy" in training_metrics:
-            metrics["entropy"] = f"{float(training_metrics['train/entropy']):.3f}"
-        return metrics
-
-    def _validate_network(self, network: nn.Module) -> None:
-        self.policy_action_space.validate_network(
-            network, self.observation_shape, "network"
-        )
-
-    def _validate_value_network(self, network: nn.Module) -> None:
-        try:
-            with torch.no_grad():
-                output = network(
-                    torch.zeros((1, *self.observation_shape), device=self.device)
-                )
-        except Exception as error:
-            raise ValueError(
-                "value_network could not process one environment observation"
-            ) from error
-        expected_shape = (1,)
-        if not isinstance(output, torch.Tensor) or output.shape != expected_shape:
-            actual_shape = getattr(output, "shape", None)
-            raise ValueError(
-                f"value_network must return shape {expected_shape}, got {actual_shape}"
-            )
-
-    def _as_observation(self, observation: Any) -> np.ndarray:
-        array = np.asarray(observation, dtype=np.float32)
-        if array.shape != self.observation_shape:
-            raise ValueError(
-                f"expected observation shape {self.observation_shape}, "
-                f"got {array.shape}"
-            )
-        return array

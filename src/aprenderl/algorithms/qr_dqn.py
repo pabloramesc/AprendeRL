@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
-import numpy as np
 import torch
 from torch import nn
 
-from aprenderl.algorithms.dqn import DQN, DQNConfig, _environment_dimensions
+from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.networks import QuantileQNetwork
@@ -46,32 +45,31 @@ class QRDQN(DQN):
         callback: BaseCallback | list[BaseCallback] | None = None,
         logger: TrainingLogger | None = None,
     ) -> None:
-        actual_config = config or QRDQNConfig()
-        provided_network = network is not None
-        if network is None:
-            observation_shape, action_dim, _ = _environment_dimensions(env, "QRDQN")
-            network = QuantileQNetwork(
-                int(np.prod(observation_shape)), action_dim, actual_config.quantiles
-            )
         super().__init__(
             env,
             network,
-            config=actual_config,
+            config=config or QRDQNConfig(),
             device=device,
             callback=callback,
             logger=logger,
         )
-        self._uses_default_network = not provided_network
+
+    def _make_default_network(self) -> nn.Module:
+        return QuantileQNetwork(
+            self.observation_dim, self.action_dim, self.config.quantiles
+        )
+
+    # ------------------------------------------------------------------
+    # QR-DQN learning rule
+    # ------------------------------------------------------------------
 
     def _train_step(self) -> dict[str, float | int]:
         batch = self.replay_buffer.sample(self.config.batch_size, self.device)
         with torch.no_grad():
-            if self.config.double_dqn:
-                next_values = self._q_values(self.q_network, batch.next_observations)
-            else:
-                next_values = self._q_values(
-                    self.target_network, batch.next_observations
-                )
+            action_network = (
+                self.q_network if self.config.double_dqn else self.target_network
+            )
+            next_values = self._q_values(action_network, batch.next_observations)
             next_actions = next_values.argmax(dim=1)
             target_quantiles = self.target_network(batch.next_observations)
             rows = torch.arange(batch.rewards.shape[0], device=self.device)

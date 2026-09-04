@@ -115,8 +115,8 @@ The algorithm and loss helper are in
 [`src/aprenderl/algorithms/iqn.py`](../../src/aprenderl/algorithms/iqn.py), and
 the default network is in
 [`src/aprenderl/networks/distributional.py`](../../src/aprenderl/networks/distributional.py).
-See the runnable [`IQN example`](../../examples/train_iqn.ipynb) and the
-standalone [`IQN study notebook`](../../study/iqn.ipynb).
+See the runnable [`IQN example`](../../examples/iqn.ipynb) and the
+standalone [`IQN study notebook`](../../study/05_distributional_rl/03_iqn.ipynb).
 
 ## Original paper
 

@@ -124,8 +124,8 @@ default network is in
 [`src/aprenderl/networks/q_network.py`](../../src/aprenderl/networks/q_network.py),
 and uniform replay is in
 [`src/aprenderl/buffers/replay.py`](../../src/aprenderl/buffers/replay.py).
-See the runnable [`DQN example`](../../examples/train_dqn.ipynb) and the
-standalone [`DQN study notebook`](../../study/dqn.ipynb).
+See the runnable [`DQN example`](../../examples/dqn.ipynb) and the
+standalone [`DQN study notebook`](../../study/04_deep_q_learning/01_dqn.ipynb).
 
 ## Original papers
 
