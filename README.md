@@ -112,12 +112,28 @@ Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
 algorithm's observation and action spaces.
 
+Regenerate and keep the outputs of every example notebook with:
+
+```bash
+./scripts/regenerate_example_outputs.sh
+```
+
+Set `NOTEBOOK_CELL_TIMEOUT` to change the default 900-second timeout per cell.
+
 ## Study notebooks
 
 These notebooks implement concepts directly with Gymnasium, NumPy, and
 PyTorch. They are organized as a seven-chapter learning path, from bandits and
 dynamic programming through value-based deep RL and policy gradients. Start
 with the [study guide](study/README.md).
+
+Regenerate and keep the outputs of every study notebook with:
+
+```bash
+./scripts/regenerate_study_outputs.sh
+```
+
+This script also honors the `NOTEBOOK_CELL_TIMEOUT` setting described above.
 
 ## Repository layout
 
