@@ -12,11 +12,15 @@ from torch import nn
 
 from aprenderl import (
     A2C,
+    PPO,
     REINFORCE,
+    TRPO,
     A2CConfig,
     ActorCritic,
     ActorCriticConfig,
+    PPOConfig,
     REINFORCEConfig,
+    TRPOConfig,
 )
 from aprenderl.networks import GaussianPolicyNetwork, ValueNetwork
 
@@ -26,9 +30,7 @@ AgentFactory = Callable[[gym.Env[Any, Any]], Any]
 class ContinuousBandit(gym.Env[np.ndarray, np.ndarray]):
     """One-step task whose optimal bounded action is 0.6."""
 
-    observation_space = gym.spaces.Box(
-        -1.0, 1.0, shape=(1,), dtype=np.float32
-    )
+    observation_space = gym.spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32)
     action_space = gym.spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32)
 
     def reset(
@@ -50,12 +52,8 @@ class ContinuousBandit(gym.Env[np.ndarray, np.ndarray]):
 class UnboundedContinuousBandit(gym.Env[np.ndarray, np.ndarray]):
     """One-step continuous task without action bounds."""
 
-    observation_space = gym.spaces.Box(
-        -1.0, 1.0, shape=(3,), dtype=np.float32
-    )
-    action_space = gym.spaces.Box(
-        -np.inf, np.inf, shape=(1,), dtype=np.float32
-    )
+    observation_space = gym.spaces.Box(-1.0, 1.0, shape=(3,), dtype=np.float32)
+    action_space = gym.spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float32)
 
     def reset(
         self,
@@ -113,7 +111,17 @@ def a2c(env: gym.Env[Any, Any]) -> A2C:
     )
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+def ppo(env: gym.Env[Any, Any]) -> PPO:
+    return PPO(
+        env, config=PPOConfig(n_steps=2, batch_size=2, n_epochs=2, seed=7), device="cpu"
+    )
+
+
+def trpo(env: gym.Env[Any, Any]) -> TRPO:
+    return TRPO(env, config=TRPOConfig(n_steps=2, value_epochs=2, seed=7), device="cpu")
+
+
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_continuous_policy_predicts_actions_inside_box(factory: AgentFactory) -> None:
     env = gym.make("Pendulum-v1")
     try:
@@ -131,7 +139,7 @@ def test_continuous_policy_predicts_actions_inside_box(factory: AgentFactory) ->
     assert env.action_space.contains(sampled_action)
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_continuous_policy_and_value_networks_update(factory: AgentFactory) -> None:
     env = gym.make("Pendulum-v1", max_episode_steps=2)
     try:
@@ -164,17 +172,13 @@ def test_continuous_policy_and_value_networks_update(factory: AgentFactory) -> N
         )
     )
     assert all(
-        parameter.isfinite().all()
-        for parameter in agent.policy_network.parameters()
+        parameter.isfinite().all() for parameter in agent.policy_network.parameters()
     )
     assert all(
-        parameter.isfinite().all()
-        for parameter in agent.value_network.parameters()
+        parameter.isfinite().all() for parameter in agent.value_network.parameters()
     )
     assert all(
-        np.isfinite(value)
-        for key, value in metrics.items()
-        if key.startswith("train/")
+        np.isfinite(value) for key, value in metrics.items() if key.startswith("train/")
     )
 
 
@@ -184,6 +188,8 @@ def test_continuous_policy_and_value_networks_update(factory: AgentFactory) -> N
         (REINFORCE, reinforce),
         (ActorCritic, actor_critic),
         (A2C, a2c),
+        (PPO, ppo),
+        (TRPO, trpo),
     ],
 )
 def test_continuous_checkpoint_round_trip(
@@ -217,7 +223,7 @@ def test_continuous_checkpoint_round_trip(
         torch.testing.assert_close(actual, expected)
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_continuous_policy_validates_network_output(factory: AgentFactory) -> None:
     env = gym.make("Pendulum-v1")
     try:
@@ -228,12 +234,13 @@ def test_continuous_policy_validates_network_output(factory: AgentFactory) -> No
             elif factory is actor_critic:
                 ActorCritic(env, bad_network, device="cpu")
             else:
-                A2C(env, bad_network, device="cpu")
+                algorithm = {a2c: A2C, ppo: PPO, trpo: TRPO}[factory]
+                algorithm(env, bad_network, device="cpu")
     finally:
         env.close()
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_policy_gradients_reject_unsupported_action_spaces(
     factory: AgentFactory,
 ) -> None:
@@ -247,7 +254,7 @@ def test_policy_gradients_reject_unsupported_action_spaces(
         env.close()
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_policy_gradients_reject_partially_bounded_action_spaces(
     factory: AgentFactory,
 ) -> None:
@@ -264,7 +271,7 @@ def test_policy_gradients_reject_partially_bounded_action_spaces(
         env.close()
 
 
-@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c])
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
 def test_unbounded_actions_use_plain_gaussian_and_update(
     factory: AgentFactory,
 ) -> None:
@@ -281,17 +288,17 @@ def test_unbounded_actions_use_plain_gaussian_and_update(
     assert env.action_space.contains(action)
     assert agent.num_updates >= 1
     assert all(
-        parameter.isfinite().all()
-        for parameter in agent.policy_network.parameters()
+        parameter.isfinite().all() for parameter in agent.policy_network.parameters()
     )
 
 
-def test_continuous_policy_preserves_multidimensional_action_shape() -> None:
+@pytest.mark.parametrize("factory", [reinforce, actor_critic, a2c, ppo, trpo])
+def test_continuous_policy_preserves_multidimensional_action_shape(factory) -> None:
     env = gym.Env()
     env.observation_space = gym.spaces.Box(-1.0, 1.0, shape=(3,))
     env.action_space = gym.spaces.Box(-2.0, 2.0, shape=(2, 2))
     try:
-        agent = A2C(env, config=A2CConfig(n_steps=2), device="cpu")
+        agent = factory(env)
         action = agent.predict(np.zeros(3, dtype=np.float32))
     finally:
         env.close()
@@ -340,6 +347,8 @@ def test_continuous_checkpoint_validates_action_bounds(tmp_path: Path) -> None:
         (REINFORCE, reinforce),
         (ActorCritic, actor_critic),
         (A2C, a2c),
+        (PPO, ppo),
+        (TRPO, trpo),
     ],
 )
 def test_plain_gaussian_checkpoint_round_trip(
@@ -389,6 +398,13 @@ def test_plain_gaussian_checkpoint_round_trip(
                 seed=7,
             ),
         ),
+        (
+            PPO,
+            PPOConfig(
+                n_steps=16, batch_size=16, n_epochs=4, learning_rate=1e-2, seed=7
+            ),
+        ),
+        (TRPO, TRPOConfig(n_steps=16, value_epochs=2, seed=7)),
         (
             A2C,
             A2CConfig(

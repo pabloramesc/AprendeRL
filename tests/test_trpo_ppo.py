@@ -9,7 +9,7 @@ from torch.distributions import Categorical, kl_divergence
 from torch.nn.utils import parameters_to_vector
 
 from aprenderl import PPO, TRPO, PPOConfig, TRPOConfig
-from aprenderl.networks import ValueNetwork
+from aprenderl.networks import GaussianPolicyNetwork, ValueNetwork
 from aprenderl.types import Transition
 
 
@@ -257,12 +257,18 @@ def test_nonzero_action_offset(algorithm):
         env.close()
 
 
-def test_ppo_clipping_signs_and_frozen_old_probabilities(monkeypatch):
+@pytest.mark.parametrize("action_kind", ["discrete", "bounded", "unbounded"])
+def test_ppo_clipping_signs_and_frozen_old_probabilities(monkeypatch, action_kind):
     env = gym.make("CartPole-v1")
+    if action_kind != "discrete":
+        bound = 2.0 if action_kind == "bounded" else np.inf
+        env.action_space = gym.spaces.Box(-bound, bound, (2,), dtype=np.float32)
     try:
         agent = PPO(
             env,
-            nn.Linear(4, 2),
+            nn.Linear(4, 2)
+            if action_kind == "discrete"
+            else GaussianPolicyNetwork(4, 2, hidden_sizes=()),
             config=config(
                 PPO, n_steps=4, batch_size=4, n_epochs=2, normalize_advantage=False
             ),
@@ -275,7 +281,7 @@ def test_ppo_clipping_signs_and_frozen_old_probabilities(monkeypatch):
         with torch.no_grad():
             new_logs = agent.policy_action_space.distribution(
                 agent.policy_network(batch.observations)
-            ).log_prob(batch.actions.long())
+            ).log_prob(agent.policy_action_space.action_batch_tensor(batch.actions))
             batch.log_probabilities.copy_(new_logs - desired_ratios.log())
         old_logs = batch.log_probabilities.clone()
         # Freeze optimizers so both epochs must use exactly the same old reference.
@@ -456,5 +462,116 @@ def test_trpo_zero_advantages_skip_actor_but_fit_critic():
             before, parameters_to_vector(agent.policy_network.parameters())
         )
         assert agent.value_optimizer.state
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize("bounded", [True, False])
+@pytest.mark.parametrize("reject", [False, True])
+def test_trpo_gaussian_kl_budget_and_rollback(monkeypatch, bounded, reject):
+    env = gym.Env()
+    env.observation_space = gym.spaces.Box(-1, 1, (3,), dtype=np.float32)
+    bound = 2.0 if bounded else np.inf
+    env.action_space = gym.spaces.Box(-bound, bound, (2, 2), dtype=np.float32)
+    agent = TRPO(
+        env,
+        GaussianPolicyNetwork(3, 4, hidden_sizes=()),
+        config=config(TRPO),
+        device="cpu",
+    )
+    observations = torch.zeros(8, 3)
+    with torch.no_grad():
+        old = agent.policy_action_space.distribution(agent.policy_network(observations))
+        actions = old.sample()
+        old_logs = old.log_prob(actions)
+    before = parameters_to_vector(agent.policy_network.parameters()).detach().clone()
+    if reject:
+
+        def reject_candidate(old_distribution, new_distribution):
+            divergence = kl_divergence(old_distribution, new_distribution)
+            return divergence if torch.is_grad_enabled() else divergence + 1
+
+        monkeypatch.setattr("aprenderl.algorithms.trpo.kl_divergence", reject_candidate)
+    metrics = agent._update_actor(observations, actions, torch.ones(8), old_logs)
+    after = parameters_to_vector(agent.policy_network.parameters())
+    if reject:
+        assert torch.equal(before, after)
+        assert metrics["train/step_fraction"] == 0
+    else:
+        new = agent.policy_action_space.distribution(agent.policy_network(observations))
+        actual_kl = kl_divergence(old.distribution, new.distribution).sum(-1).mean()
+        assert 0 < actual_kl <= agent.config.max_kl
+        assert metrics["train/kl"] == pytest.approx(actual_kl.item(), abs=1e-6)
+        assert metrics["train/surrogate_gain"] > 0
+        assert not torch.equal(before, after)
+    env.close()
+
+
+@pytest.mark.parametrize("bounded", [True, False])
+def test_multidimensional_custom_gaussian_training_and_resume(
+    algorithm, bounded, tmp_path
+):
+    class MatrixActions(gym.Env):
+        observation_space = gym.spaces.Box(-1, 1, (3,), dtype=np.float32)
+
+        def __init__(self):
+            bound = 2.0 if bounded else np.inf
+            self.action_space = gym.spaces.Box(-bound, bound, (2, 2), dtype=np.float32)
+
+        def reset(self, *, seed=None, options=None):
+            super().reset(seed=seed)
+            return np.zeros(3, dtype=np.float32), {}
+
+        def step(self, action):
+            assert self.action_space.contains(action)
+            return (
+                np.zeros(3, dtype=np.float32),
+                -float((action**2).sum()),
+                False,
+                True,
+                {},
+            )
+
+    env = MatrixActions()
+    try:
+        agent = algorithm(
+            env,
+            GaussianPolicyNetwork(3, 4, hidden_sizes=()),
+            config=config(algorithm),
+            device="cpu",
+        )
+        before = (
+            parameters_to_vector(agent.policy_network.parameters()).detach().clone()
+        )
+        agent.learn(10, progress_bar=False)
+        assert not torch.equal(
+            before, parameters_to_vector(agent.policy_network.parameters())
+        )
+        path = tmp_path / "matrix.pt"
+        agent.save(path)
+        with pytest.raises(ValueError, match="requires policy_network"):
+            algorithm.load(path, env, device="cpu")
+        restored = algorithm.load(
+            path,
+            env,
+            policy_network=GaussianPolicyNetwork(3, 4, hidden_sizes=()),
+            device="cpu",
+        )
+        observation, _ = env.reset()
+        np.testing.assert_allclose(
+            restored.predict(observation, deterministic=True),
+            agent.predict(observation, deterministic=True),
+        )
+        restored.learn(5, progress_bar=False)
+        assert restored.num_updates == 3
+        # The same flattened size must not hide an incompatible action shape.
+        env.action_space = gym.spaces.Box(-2, 2, (4,), dtype=np.float32)
+        with pytest.raises(ValueError, match="checkpoint spaces"):
+            algorithm.load(
+                path,
+                env,
+                policy_network=GaussianPolicyNetwork(3, 4, hidden_sizes=()),
+                device="cpu",
+            )
     finally:
         env.close()

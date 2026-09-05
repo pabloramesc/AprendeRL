@@ -123,6 +123,34 @@ finally:
     env.close()
 ```
 
+## Continuous-action example
+
+```python
+import gymnasium as gym
+from aprenderl import PPO, PPOConfig
+
+env = gym.make("Pendulum-v1")
+try:
+    agent = PPO(env, config=PPOConfig(n_steps=1024, seed=7), device="cpu")
+    agent.learn(51_200)
+    observation, _ = env.reset(seed=42)
+    action = agent.predict(observation, deterministic=True)
+    assert env.action_space.contains(action)
+    agent.save("artifacts/ppo_continuous.pt")
+    restored = PPO.load("artifacts/ppo_continuous.pt", env, device="cpu")
+finally:
+    env.close()
+```
+
+The default `GaussianPolicyNetwork` learns both means and log standard
+deviations. Actions retain the environment's shape and floating dtype, including
+multidimensional boxes; log densities sum over all flattened action dimensions.
+Deterministic actions use the transformed mean, not a random sample.
+
+The [continuous-action notebook](../../examples/ppo_continuous.ipynb)
+uses lower-gravity Pendulum for a compact CPU demonstration, plots episode
+returns, and renders deterministic evaluation in a separate environment.
+
 See the [source](../../src/aprenderl/algorithms/ppo.py),
 [public-API example](../../examples/ppo.ipynb), and
 [from-scratch study notebook](../../study/06_policy_gradients/07_ppo.ipynb).

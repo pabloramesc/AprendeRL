@@ -79,6 +79,12 @@ The public library follows a compact learning path:
 - the paper-level distributional agents C51, Rainbow DQN, QR-DQN, IQN, and FQF;
 - REINFORCE, Actor-Critic, A2C, TRPO, and PPO for discrete and continuous actions.
 
+For continuous control, TRPO and PPO automatically select a diagonal Gaussian
+policy: finite `Box` bounds use tanh squashing and rescaling, while fully
+unbounded boxes use a plain Gaussian. Multidimensional action shapes are
+preserved. See the [TRPO](docs/algorithms/trpo.md#continuous-action-example) and
+[PPO](docs/algorithms/ppo.md#continuous-action-example) continuous-action guides.
+
 Every algorithm follows `learn`, `predict`, `save`, and `load`. Smaller
 foundational methods and individual DQN mechanisms remain as self-contained
 study notebooks rather than additional public classes.
@@ -108,7 +114,9 @@ Complete training examples:
 - [A2C](examples/a2c.ipynb)
 - [A2C on continuous actions](examples/a2c_continuous.ipynb)
 - [TRPO](examples/trpo.ipynb)
+- [TRPO on continuous actions](examples/trpo_continuous.ipynb)
 - [PPO](examples/ppo.ipynb)
+- [PPO on continuous actions](examples/ppo_continuous.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
