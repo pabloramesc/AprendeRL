@@ -132,25 +132,26 @@ with the [study guide](study/README.md).
 ## Repository layout
 
 ```text
-src/aprenderl/
-├── algorithms/      # Core algorithms and the paper-level DQN family
-├── buffers/         # Replay and ordered rollout buffers
-├── callbacks/       # Training lifecycle hooks
-├── distributions/   # Categorical, Gaussian, and squashed Gaussian policies
-├── envs/            # Gymnasium wrappers
-├── logging/         # Scalar metric collection
-├── networks/        # PyTorch policy, value, and Q-network components
-├── policies/        # Exploration components and schedules
-├── config.py        # Experiment configuration
-├── types.py         # Transitions and episode metrics
-└── utils/           # Seeding, devices, and evaluation
+AprendeRL/
+├── docs/                # Algorithm documentation and mathematical guides
+├── examples/            # Public-API example notebooks
+├── scripts/             # Notebook execution and output cleanup utilities
+├── src/
+│   └── aprenderl/
+│       ├── algorithms/      # Core algorithms and the paper-level DQN family
+│       ├── buffers/         # Replay and ordered rollout buffers
+│       ├── callbacks/       # Training lifecycle hooks
+│       ├── distributions/   # Categorical, Gaussian, and squashed Gaussian policies
+│       ├── envs/            # Gymnasium wrappers
+│       ├── logging/         # Scalar metric collection
+│       ├── networks/        # PyTorch policy, value, and Q-network components
+│       ├── policies/        # Exploration components and schedules
+│       ├── config.py        # Experiment configuration
+│       ├── types.py         # Transitions and episode metrics
+│       └── utils/           # Seeding, devices, and evaluation
+├── study/               # From-scratch notebooks organized by learning chapter
+└── tests/               # Unit tests and end-to-end learning checks
 ```
-
-Gymnasium's `terminated` and `truncated` signals are stored separately.
-Value-based algorithms, Actor-Critic, A2C, TRPO, and PPO stop bootstrapping only
-at true terminal states; REINFORCE updates only after a complete Gymnasium episode. Use
-a separate evaluation environment if training will continue afterward, so
-evaluation does not disturb the training state.
 
 See the [algorithm documentation index](docs/algorithms.md) for notation,
 off-policy and on-policy classifications, and a separate mathematical guide for
