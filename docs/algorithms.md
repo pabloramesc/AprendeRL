@@ -25,6 +25,8 @@ viewers.
   - [REINFORCE](#reinforce)
   - [Actor-Critic](#actor-critic)
   - [A2C](#a2c)
+  - [TRPO](#trpo)
+  - [PPO](#ppo)
 - [General references](#general-references)
 
 ## Notation
@@ -92,7 +94,7 @@ Deterministic prediction always uses the greedy action.
 
 ### Policy-gradient action distributions
 
-REINFORCE, Actor-Critic, and A2C accept either `Discrete` actions or
+REINFORCE, Actor-Critic, A2C, TRPO, and PPO accept either `Discrete` actions or
 floating-point `Box` actions. A discrete policy produces categorical logits. A
 continuous policy produces one Gaussian mean and learned log standard deviation
 per flattened action dimension. Finite bounds apply `tanh` and rescale the
@@ -196,6 +198,16 @@ Updates a categorical or diagonal-Gaussian actor and state-value critic after
 fixed-length on-policy rollouts, using generalized advantage estimation to
 combine multi-step reward information with value bootstrapping.
 [Read the full guide](algorithms/a2c.md).
+
+### TRPO
+
+Uses GAE advantages and a conjugate-gradient actor step with a measured mean-KL
+line search. [Read the full guide](algorithms/trpo.md).
+
+### PPO
+
+Uses GAE advantages and a clipped policy surrogate optimized over shuffled
+minibatches of each rollout. [Read the full guide](algorithms/ppo.md).
 
 ## General references
 

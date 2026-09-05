@@ -19,7 +19,7 @@ notebooks.
 6. [Distributional reinforcement learning](05_distributional_rl/README.md) —
    categorical and quantile representations of return distributions.
 7. [Policy gradients](06_policy_gradients/README.md) — direct policy
-   optimization, critics, continuous actions, and multi-step targets.
+   optimization, critics, continuous actions, multi-step targets, TRPO, and PPO.
 
 Each notebook starts from Gymnasium, NumPy, and PyTorch components so the
 learning rule remains visible. The `examples/` notebooks demonstrate the

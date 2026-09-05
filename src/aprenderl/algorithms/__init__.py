@@ -12,11 +12,13 @@ from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.algorithms.fqf import FQF, FQFConfig
 from aprenderl.algorithms.iqn import IQN, IQNConfig
 from aprenderl.algorithms.policy_gradient import PolicyGradientAlgorithm
+from aprenderl.algorithms.ppo import PPO, PPOConfig
 from aprenderl.algorithms.q_learning import QLearning, QLearningConfig
 from aprenderl.algorithms.qr_dqn import QRDQN, QRDQNConfig
 from aprenderl.algorithms.rainbow import RainbowDQN, RainbowDQNConfig
 from aprenderl.algorithms.reinforce import REINFORCE, REINFORCEConfig
 from aprenderl.algorithms.sarsa import SARSA, SARSAConfig
+from aprenderl.algorithms.trpo import TRPO, TRPOConfig
 
 __all__ = [
     "A2C",
@@ -35,12 +37,16 @@ __all__ = [
     "OffPolicyAlgorithm",
     "OnPolicyAlgorithm",
     "PolicyGradientAlgorithm",
+    "PPO",
+    "PPOConfig",
     "QLearning",
     "QLearningConfig",
     "REINFORCE",
     "REINFORCEConfig",
     "SARSA",
     "SARSAConfig",
+    "TRPO",
+    "TRPOConfig",
     "QRDQN",
     "QRDQNConfig",
     "RainbowDQN",

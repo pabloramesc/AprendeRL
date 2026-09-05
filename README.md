@@ -77,7 +77,7 @@ The public library follows a compact learning path:
 - tabular Q-Learning and SARSA;
 - DQN with optional Double DQN targets;
 - the paper-level distributional agents C51, Rainbow DQN, QR-DQN, IQN, and FQF;
-- REINFORCE, Actor-Critic, and A2C for discrete and continuous actions.
+- REINFORCE, Actor-Critic, A2C, TRPO, and PPO for discrete and continuous actions.
 
 Every algorithm follows `learn`, `predict`, `save`, and `load`. Smaller
 foundational methods and individual DQN mechanisms remain as self-contained
@@ -86,8 +86,8 @@ study notebooks rather than additional public classes.
 Shared environment interaction and training state live in `BaseAlgorithm`.
 `OnPolicyAlgorithm` and `OffPolicyAlgorithm` identify the learning family,
 while `PolicyGradientAlgorithm` contains the neural policy and action-space
-machinery shared by REINFORCE, Actor-Critic, and A2C. The mathematical update
-for each algorithm remains in its own module.
+machinery shared by REINFORCE, Actor-Critic, A2C, TRPO, and PPO. The mathematical
+update for each algorithm remains in its own module.
 
 ## Example notebooks
 
@@ -107,6 +107,8 @@ Complete training examples:
 - [Actor-Critic on continuous actions](examples/actor_critic_continuous.ipynb)
 - [A2C](examples/a2c.ipynb)
 - [A2C on continuous actions](examples/a2c_continuous.ipynb)
+- [TRPO](examples/trpo.ipynb)
+- [PPO](examples/ppo.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
@@ -153,8 +155,8 @@ src/aprenderl/
 ```
 
 Gymnasium's `terminated` and `truncated` signals are stored separately.
-Value-based algorithms, Actor-Critic, and A2C stop bootstrapping only at true
-terminal states; REINFORCE updates only after a complete Gymnasium episode. Use
+Value-based algorithms, Actor-Critic, A2C, TRPO, and PPO stop bootstrapping only
+at true terminal states; REINFORCE updates only after a complete Gymnasium episode. Use
 a separate evaluation environment if training will continue afterward, so
 evaluation does not disturb the training state.
 

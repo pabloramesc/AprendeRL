@@ -26,8 +26,8 @@ Completed algorithms are checked.
 - [x] Actor-Critic (Barto et al., 1983; Sutton et al., 2000)
 - [x] A2C - Advantage Actor-Critic
   (Mnih et al., 2016; Schulman et al., 2016)
-- [ ] TRPO - Trust Region Policy Optimization (Schulman et al., 2015)
-- [ ] PPO - Proximal Policy Optimization (Schulman et al., 2017)
+- [x] TRPO - Trust Region Policy Optimization (Schulman et al., 2015)
+- [x] PPO - Proximal Policy Optimization (Schulman et al., 2017)
 
 ## Continuous-control methods
 
