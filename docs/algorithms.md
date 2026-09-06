@@ -20,6 +20,7 @@ viewers.
     - [QR-DQN](#qr-dqn)
     - [IQN](#iqn)
     - [FQF](#fqf)
+  - [Off-policy actor-critic methods](#off-policy-actor-critic-methods)
 - [On-policy algorithms](#on-policy-algorithms)
   - [Tabular SARSA](#tabular-sarsa)
   - [REINFORCE](#reinforce)
@@ -103,10 +104,11 @@ plain diagonal Gaussian. Partially or one-sided bounded spaces are rejected
 because they require a different transform. Deterministic prediction uses the
 categorical mode or Gaussian mean, including the finite-bound transformation.
 
-All current value-based control algorithms remain discrete-action algorithms.
-The Gaussian path keeps the on-policy implementations compact and educational;
-dedicated continuous-control methods such as SAC and TD3 will generally be more
-sample efficient once they are implemented.
+DDPG, TD3, and SAC add off-policy control for finite floating-point `Box`
+actions. DDPG and TD3 use deterministic actors with exploration noise; SAC
+uses a reparameterized squashed Gaussian with state-dependent variance and
+automatic entropy tuning. DiscreteSAC uses categorical policies and exact
+action expectations. See the guides below for their distinct update rules.
 
 ## Off-policy algorithms
 
@@ -168,6 +170,23 @@ embeddings to approximate a continuous quantile function.
 
 Learns both the return quantile values and the fraction intervals used to
 summarize them. [Read the FQF guide](algorithms/fqf.md).
+
+### Off-policy actor-critic methods
+
+The study sequence begins with [DPG](algorithms/dpg.md), which teaches the
+deterministic policy gradient without adding a public class.
+
+| Algorithm | Actions | Central concept | Guide |
+| --- | --- | --- | --- |
+| DDPG | Finite `Box` | Deterministic actor, replay and target networks | [DDPG](algorithms/ddpg.md) |
+| TD3 | Finite `Box` | Twin critics, smoothing and delayed updates | [TD3](algorithms/td3.md) |
+| SAC | Finite `Box` | Reparameterization and automatic entropy tuning | [SAC](algorithms/sac.md) |
+| DiscreteSAC | `Discrete` | Exact categorical action expectations | [Discrete SAC](algorithms/discrete_sac.md) |
+
+All four inherit `OffPolicyAlgorithm` and share neural-policy infrastructure
+through `PolicyGradientAlgorithm`. They bootstrap through time limits while
+masking true termination. The [study chapter](../study/07_continuous_control/README.md)
+implements each concept from scratch.
 
 ## On-policy algorithms
 

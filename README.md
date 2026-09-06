@@ -77,13 +77,22 @@ The public library follows a compact learning path:
 - tabular Q-Learning and SARSA;
 - DQN with optional Double DQN targets;
 - the paper-level distributional agents C51, Rainbow DQN, QR-DQN, IQN, and FQF;
-- REINFORCE, Actor-Critic, A2C, TRPO, and PPO for discrete and continuous actions.
+- REINFORCE, Actor-Critic, A2C, TRPO, and PPO for discrete and continuous actions;
+- DDPG, TD3, and SAC for bounded continuous control, plus DiscreteSAC.
 
 For continuous control, TRPO and PPO automatically select a diagonal Gaussian
 policy: finite `Box` bounds use tanh squashing and rescaling, while fully
 unbounded boxes use a plain Gaussian. Multidimensional action shapes are
 preserved. See the [TRPO](docs/algorithms/trpo.md#continuous-action-example) and
 [PPO](docs/algorithms/ppo.md#continuous-action-example) continuous-action guides.
+
+The off-policy continuous-control path progresses from a from-scratch
+[DPG lesson](study/07_continuous_control/01_dpg.ipynb) to public
+[DDPG](docs/algorithms/ddpg.md), [TD3](docs/algorithms/td3.md),
+[SAC](docs/algorithms/sac.md), and [DiscreteSAC](docs/algorithms/discrete_sac.md)
+classes. DDPG, TD3, and SAC require finite floating-point `Box` action bounds.
+SAC uses twin critics and automatic entropy tuning; DiscreteSAC evaluates
+policy expectations exactly over discrete actions.
 
 Every algorithm follows `learn`, `predict`, `save`, and `load`. Smaller
 foundational methods and individual DQN mechanisms remain as self-contained
@@ -92,8 +101,10 @@ study notebooks rather than additional public classes.
 Shared environment interaction and training state live in `BaseAlgorithm`.
 `OnPolicyAlgorithm` and `OffPolicyAlgorithm` identify the learning family,
 while `PolicyGradientAlgorithm` contains the neural policy and action-space
-machinery shared by REINFORCE, Actor-Critic, A2C, TRPO, and PPO. The mathematical
-update for each algorithm remains in its own module.
+machinery shared by the on-policy and off-policy actor-critic families.
+`OffPolicyActorCritic` adds replay, network construction, and checkpoint
+handling. Each concrete algorithm retains its mathematical update in its own
+module, and its on-policy or off-policy classification remains explicit.
 
 ## Example notebooks
 
@@ -117,6 +128,10 @@ Complete training examples:
 - [TRPO on continuous actions](examples/trpo_continuous.ipynb)
 - [PPO](examples/ppo.ipynb)
 - [PPO on continuous actions](examples/ppo_continuous.ipynb)
+- [DDPG](examples/ddpg.ipynb)
+- [TD3](examples/td3.ipynb)
+- [SAC](examples/sac.ipynb)
+- [Discrete SAC](examples/discrete_sac.ipynb)
 
 Each notebook defines its Gymnasium environment with an `ENV_ID` constant near
 the beginning, so you can switch to another environment compatible with the
@@ -125,9 +140,9 @@ algorithm's observation and action spaces.
 ## Study notebooks
 
 These notebooks implement concepts directly with Gymnasium, NumPy, and
-PyTorch. They are organized as a seven-chapter learning path, from bandits and
-dynamic programming through value-based deep RL and policy gradients. Start
-with the [study guide](study/README.md).
+PyTorch. They are organized as an eight-chapter learning path, from bandits and
+dynamic programming through value-based deep RL, policy gradients, and
+off-policy continuous control. Start with the [study guide](study/README.md).
 
 ## Repository layout
 

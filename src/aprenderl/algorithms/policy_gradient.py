@@ -9,8 +9,9 @@ import gymnasium as gym
 import numpy as np
 import torch
 from torch import nn
+from typing_extensions import Self
 
-from aprenderl.algorithms.base import OnPolicyAlgorithm
+from aprenderl.algorithms.base import BaseAlgorithm
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
 from aprenderl.policies.action_space import PolicyAction, PolicyActionSpace
@@ -25,8 +26,8 @@ class PolicyGradientConfig(Protocol):
     seed: int | None
 
 
-class PolicyGradientAlgorithm(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
-    """Common observation, action-space, and prediction handling."""
+class PolicyGradientAlgorithm(BaseAlgorithm[np.ndarray, PolicyAction]):
+    """Neural-policy plumbing independent of on-policy/off-policy classification."""
 
     def __init__(
         self,
@@ -68,12 +69,21 @@ class PolicyGradientAlgorithm(OnPolicyAlgorithm[np.ndarray, PolicyAction]):
         self.policy_network = (
             policy_network
             if policy_network is not None
-            else self.policy_action_space.default_network(self.observation_dim)
+            else self._default_policy_network()
         ).to(self.device)
+        self._validate_policy_network(policy_network_name)
+
+    def learn(self, total_timesteps: int, *, progress_bar: bool = True) -> Self:
+        """Run the shared interaction loop with the concrete learning rule."""
+
+        return self._learn_online(total_timesteps, progress_bar=progress_bar)
+
+    def _default_policy_network(self) -> nn.Module:
+        return self.policy_action_space.default_network(self.observation_dim)
+
+    def _validate_policy_network(self, name: str) -> None:
         self.policy_action_space.validate_network(
-            self.policy_network,
-            self.observation_shape,
-            policy_network_name,
+            self.policy_network, self.observation_shape, name
         )
 
     def predict(

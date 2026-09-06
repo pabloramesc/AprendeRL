@@ -8,6 +8,8 @@ from aprenderl.algorithms.base import (
     OnPolicyAlgorithm,
 )
 from aprenderl.algorithms.c51 import C51, C51Config
+from aprenderl.algorithms.ddpg import DDPG, DDPGConfig
+from aprenderl.algorithms.discrete_sac import DiscreteSAC, DiscreteSACConfig
 from aprenderl.algorithms.dqn import DQN, DQNConfig
 from aprenderl.algorithms.fqf import FQF, FQFConfig
 from aprenderl.algorithms.iqn import IQN, IQNConfig
@@ -17,10 +19,21 @@ from aprenderl.algorithms.q_learning import QLearning, QLearningConfig
 from aprenderl.algorithms.qr_dqn import QRDQN, QRDQNConfig
 from aprenderl.algorithms.rainbow import RainbowDQN, RainbowDQNConfig
 from aprenderl.algorithms.reinforce import REINFORCE, REINFORCEConfig
+from aprenderl.algorithms.sac import SAC, SACConfig
 from aprenderl.algorithms.sarsa import SARSA, SARSAConfig
+from aprenderl.algorithms.td3 import TD3, TD3Config
 from aprenderl.algorithms.trpo import TRPO, TRPOConfig
 
 __all__ = [
+    "DDPG",
+    "DDPGConfig",
+    "TD3",
+    "TD3Config",
+    "SAC",
+    "SACConfig",
+    "DiscreteSAC",
+    "DiscreteSACConfig",
+
     "A2C",
     "A2CConfig",
     "ActorCritic",

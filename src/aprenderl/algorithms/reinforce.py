@@ -12,6 +12,7 @@ import torch
 from torch import nn
 from typing_extensions import Self
 
+from aprenderl.algorithms.base import OnPolicyAlgorithm
 from aprenderl.algorithms.policy_gradient import PolicyGradientAlgorithm
 from aprenderl.callbacks import BaseCallback
 from aprenderl.logging import TrainingLogger
@@ -53,7 +54,7 @@ class REINFORCEConfig:
             raise ValueError("log_interval must be positive")
 
 
-class REINFORCE(PolicyGradientAlgorithm):
+class REINFORCE(PolicyGradientAlgorithm, OnPolicyAlgorithm):
     """Episodic policy gradient for discrete or continuous ``Box`` actions.
 
     The policy is updated only from complete episodes. Each action is weighted

@@ -1,5 +1,10 @@
 """Neural-network building blocks."""
 
+from aprenderl.networks.continuous import (
+    ContinuousQNetwork,
+    DeterministicPolicyNetwork,
+    SACPolicyNetwork,
+)
 from aprenderl.networks.distributional import (
     CategoricalQNetwork,
     FQFNetwork,
@@ -12,6 +17,9 @@ from aprenderl.networks.q_network import QNetwork
 from aprenderl.networks.value_network import ValueNetwork
 
 __all__ = [
+    "ContinuousQNetwork",
+    "DeterministicPolicyNetwork",
+    "SACPolicyNetwork",
     "CategoricalQNetwork",
     "FQFNetwork",
     "GaussianPolicyNetwork",

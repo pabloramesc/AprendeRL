@@ -12,6 +12,7 @@ import torch
 from torch import nn
 from typing_extensions import Self
 
+from aprenderl.algorithms.base import OnPolicyAlgorithm
 from aprenderl.algorithms.policy_gradient import PolicyGradientAlgorithm
 from aprenderl.buffers import RolloutBuffer
 from aprenderl.callbacks import BaseCallback
@@ -52,7 +53,7 @@ class ActorCriticConfig:
             raise ValueError("log_interval must be positive")
 
 
-class ActorCritic(PolicyGradientAlgorithm):
+class ActorCritic(PolicyGradientAlgorithm, OnPolicyAlgorithm):
     """One-step actor-critic for discrete or continuous ``Box`` actions.
 
     The actor is categorical for ``Discrete`` actions, a squashed diagonal

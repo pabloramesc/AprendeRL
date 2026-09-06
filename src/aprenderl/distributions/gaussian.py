@@ -69,10 +69,29 @@ class SquashedGaussianDistribution(DiagonalGaussianDistribution):
         self.high = high.to(device=means.device, dtype=means.dtype)
         self.scale = (self.high - self.low) / 2.0
         self.bias = (self.high + self.low) / 2.0
+
     def sample(self) -> torch.Tensor:
         """Draw bounded actions from the policy."""
 
         return self._squash(self.distribution.sample())
+
+    def rsample_with_log_prob(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Reparameterize actions and evaluate a stable transformed density.
+
+        Work with the raw Gaussian sample to avoid inverting saturated tanh.
+        Both the tanh and environment-scale Jacobians are included.
+        """
+
+        raw = self.distribution.rsample()
+        log_jacobian = 2.0 * (
+            torch.log(raw.new_tensor(2.0))
+            - raw
+            - torch.nn.functional.softplus(-2 * raw)
+        )
+        log_prob = (
+            self.distribution.log_prob(raw) - log_jacobian - self.scale.log()
+        ).sum(dim=-1)
+        return self._squash(raw), log_prob
 
     def mode(self) -> torch.Tensor:
         """Return the bounded action produced by the Gaussian mean."""

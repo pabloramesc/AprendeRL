@@ -25,6 +25,8 @@ class ReplayBuffer:
 
     Termination and truncation are stored separately. Value-based algorithms
     should stop bootstrapping only for true MDP terminations.
+    By default actions are scalar integers. Supplying ``action_shape`` enables
+    float32 continuous actions with that shape, preserving fractional values.
     """
 
     def __init__(
@@ -33,6 +35,7 @@ class ReplayBuffer:
         observation_shape: tuple[int, ...],
         *,
         seed: int | None = None,
+        action_shape: tuple[int, ...] | None = None,
     ) -> None:
         if capacity <= 0:
             raise ValueError("capacity must be positive")
@@ -42,7 +45,14 @@ class ReplayBuffer:
         self.capacity = capacity
         self.observations = np.empty((capacity, *observation_shape), dtype=np.float32)
         self.next_observations = np.empty_like(self.observations)
-        self.actions = np.empty((capacity, 1), dtype=np.int64)
+        if action_shape is not None and (
+            not action_shape or any(dimension <= 0 for dimension in action_shape)
+        ):
+            raise ValueError("action_shape must contain positive dimensions")
+        self.actions = np.empty(
+            (capacity, *(action_shape if action_shape is not None else (1,))),
+            dtype=np.float32 if action_shape is not None else np.int64,
+        )
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
         self.terminated = np.empty((capacity, 1), dtype=np.float32)
         self.truncated = np.empty((capacity, 1), dtype=np.float32)
@@ -67,7 +77,7 @@ class ReplayBuffer:
         """Append one transition, overwriting the oldest when full."""
 
         self.observations[self._position] = observation
-        self.actions[self._position, 0] = action
+        self.actions[self._position] = action
         self.rewards[self._position, 0] = reward
         self.next_observations[self._position] = next_observation
         self.terminated[self._position, 0] = terminated

@@ -31,11 +31,11 @@ Completed algorithms are checked.
 
 ## Continuous-control methods
 
-- [ ] DPG - Deterministic Policy Gradient (Silver et al., 2014)
-- [ ] DDPG - Deep Deterministic Policy Gradient (Lillicrap et al., 2016)
-- [ ] TD3 - Twin Delayed DDPG (Fujimoto et al., 2018)
-- [ ] SAC - Soft Actor-Critic (Haarnoja et al., 2018)
-- [ ] Discrete SAC (Christodoulou, 2019)
+- [x] DPG - Deterministic Policy Gradient (Silver et al., 2014; study notebook)
+- [x] DDPG - Deep Deterministic Policy Gradient (Lillicrap et al., 2016)
+- [x] TD3 - Twin Delayed DDPG (Fujimoto et al., 2018)
+- [x] SAC - Soft Actor-Critic (Haarnoja et al., 2018)
+- [x] Discrete SAC (Christodoulou, 2019)
 
 ## Goal-conditioned and exploration methods
 

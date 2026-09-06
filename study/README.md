@@ -20,6 +20,9 @@ notebooks.
    categorical and quantile representations of return distributions.
 7. [Policy gradients](06_policy_gradients/README.md) — direct policy
    optimization, critics, continuous actions, multi-step targets, TRPO, and PPO.
+8. [Continuous control and soft actor-critic](07_continuous_control/README.md) —
+   DPG, DDPG, TD3, SAC, and discrete SAC, progressing from action derivatives
+   to replay and entropy-regularized policies.
 
 Each notebook starts from Gymnasium, NumPy, and PyTorch components so the
 learning rule remains visible. The `examples/` notebooks demonstrate the
